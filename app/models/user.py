@@ -4,6 +4,7 @@ from sqlalchemy import DateTime
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.database.base import Base
 
@@ -43,4 +44,16 @@ class User(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+
+    cart = relationship(
+        "Cart",
+        back_populates="user",
+        uselist=False,
+    )
+
+    cart = relationship(
+        "Cart",
+        back_populates="user",
+        uselist=False,
     )

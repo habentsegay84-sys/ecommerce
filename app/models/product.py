@@ -1,6 +1,7 @@
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.database.base import Base
 
@@ -34,4 +35,14 @@ class Product(Base):
     category = relationship(
         "Category",
         back_populates="products",
+    )
+
+    cart_items = relationship(
+        "CartItem",
+        back_populates="product",
+    )
+
+    cart_items = relationship(
+        "CartItem",
+        back_populates="product",
     )

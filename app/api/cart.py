@@ -237,3 +237,33 @@ def remove_cart_item(
     return {
         "message": "Product removed from cart"
     }
+
+@router.delete("")
+def clear_cart(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    cart = (
+        db.query(Cart)
+        .filter(Cart.user_id == current_user.id)
+        .first()
+    )
+
+    if not cart:
+        raise HTTPException(
+            status_code=404,
+            detail="Cart not found"
+        )
+
+    (
+        db.query(CartItem)
+        .filter(CartItem.cart_id == cart.id)
+        .delete()
+    )
+
+    db.commit()
+
+    return {
+        "message": "Cart cleared successfully"
+    }

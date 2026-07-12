@@ -1,0 +1,144 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.database.session import get_db
+from app.auth.dependencies import get_current_user
+
+from app.models.user import User
+from app.models.cart import Cart
+from app.models.cart_item import CartItem
+from app.models.order import Order
+from app.models.order_item import OrderItem
+from app.schemas.order import (
+    OrderResponse,
+    OrderItemResponse,
+)
+
+router = APIRouter(
+    prefix="/orders",
+    tags=["Orders"],
+)
+
+
+@router.post("/checkout")
+def checkout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    # Find the user's cart
+    cart = (
+        db.query(Cart)
+        .filter(Cart.user_id == current_user.id)
+        .first()
+    )
+
+    if not cart:
+        raise HTTPException(
+            status_code=404,
+            detail="Cart not found",
+        )
+
+    # Make sure the cart has products
+    if not cart.items:
+        raise HTTPException(
+            status_code=400,
+            detail="Cart is empty",
+        )
+
+    # Calculate the total price
+    total_price = 0
+
+    for item in cart.items:
+        total_price += (
+            item.product.price
+            * item.quantity
+        )
+
+    # Create a new order
+    order = Order(
+        user_id=current_user.id,
+        total_price=total_price,
+        status="pending",
+    )
+
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    # Copy cart items into order items
+    for item in cart.items:
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=item.product_id,
+            quantity=item.quantity,
+            price=item.product.price,
+        )
+
+        db.add(order_item)
+
+    db.commit()
+
+    # Clear the shopping cart
+    (
+        db.query(CartItem)
+        .filter(CartItem.cart_id == cart.id)
+        .delete()
+    )
+
+    db.commit()
+
+    db.refresh(order)
+
+    return {
+        "message": "Order created successfully",
+        "order_id": order.id,
+        "total_price": order.total_price,
+    }
+
+@router.get(
+    "",
+    response_model=list[OrderResponse]
+)
+def list_orders(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    orders = (
+        db.query(Order)
+        .filter(Order.user_id == current_user.id)
+        .order_by(Order.created_at.desc())
+        .all()
+    )
+
+    response = []
+
+    for order in orders:
+
+        items = []
+
+        for item in order.items:
+
+            items.append(
+                OrderItemResponse(
+                    product_id=item.product.id,
+                    product_name=item.product.name,
+                    quantity=item.quantity,
+                    price=item.price,
+                    subtotal=item.price * item.quantity,
+                )
+            )
+
+        response.append(
+            OrderResponse(
+                id=order.id,
+                total_price=order.total_price,
+                status=order.status,
+                created_at=order.created_at,
+                items=items,
+            )
+        )
+
+    return response

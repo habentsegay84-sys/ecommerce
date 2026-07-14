@@ -25,77 +25,90 @@ def checkout(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
-    # Find the user's cart
-    cart = (
-        db.query(Cart)
-        .filter(Cart.user_id == current_user.id)
-        .first()
-    )
-
-    if not cart:
-        raise HTTPException(
-            status_code=404,
-            detail="Cart not found",
+    try:
+        # Find the user's cart
+        cart = (
+            db.query(Cart)
+            .filter(Cart.user_id == current_user.id)
+            .first()
         )
 
-    # Make sure the cart has products
-    if not cart.items:
-        raise HTTPException(
-            status_code=400,
-            detail="Cart is empty",
+        if not cart:
+            raise HTTPException(
+                status_code=404,
+                detail="Cart not found",
+            )
+
+        if not cart.items:
+            raise HTTPException(
+                status_code=400,
+                detail="Cart is empty",
+            )
+
+        # Calculate total and validate stock
+        total_price = 0
+
+        for item in cart.items:
+
+            if item.quantity > item.product.stock:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Not enough stock for {item.product.name}",
+                )
+
+            total_price += (
+                item.product.price
+                * item.quantity
+            )
+
+        # Create order
+        order = Order(
+            user_id=current_user.id,
+            total_price=total_price,
+            status="pending",
         )
 
-    # Calculate the total price
-    total_price = 0
+        db.add(order)
 
-    for item in cart.items:
-        total_price += (
-            item.product.price
-            * item.quantity
+        # Get order.id without committing
+        db.flush()
+
+        # Create order items and reduce stock
+        for item in cart.items:
+
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item.product_id,
+                quantity=item.quantity,
+                price=item.product.price,
+            )
+
+            db.add(order_item)
+
+            # Reduce stock
+            item.product.stock -= item.quantity
+
+        # Clear cart
+        (
+            db.query(CartItem)
+            .filter(CartItem.cart_id == cart.id)
+            .delete()
         )
 
-    # Create a new order
-    order = Order(
-        user_id=current_user.id,
-        total_price=total_price,
-        status="pending",
-    )
+        # One commit for everything
+        db.commit()
 
-    db.add(order)
-    db.commit()
-    db.refresh(order)
+        db.refresh(order)
 
-    # Copy cart items into order items
-    for item in cart.items:
+        return {
+            "message": "Order created successfully",
+            "order_id": order.id,
+            "total_price": order.total_price,
+        }
 
-        order_item = OrderItem(
-            order_id=order.id,
-            product_id=item.product_id,
-            quantity=item.quantity,
-            price=item.product.price,
-        )
-
-        db.add(order_item)
-
-    db.commit()
-
-    # Clear the shopping cart
-    (
-        db.query(CartItem)
-        .filter(CartItem.cart_id == cart.id)
-        .delete()
-    )
-
-    db.commit()
-
-    db.refresh(order)
-
-    return {
-        "message": "Order created successfully",
-        "order_id": order.id,
-        "total_price": order.total_price,
-    }
+    except Exception:
+        db.rollback()
+        raise
 
 @router.get(
     "",
@@ -142,3 +155,50 @@ def list_orders(
         )
 
     return response
+
+@router.get(
+    "/{order_id}",
+    response_model=OrderResponse
+)
+def get_order(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found",
+        )
+
+    items = []
+
+    for item in order.items:
+
+        items.append(
+            OrderItemResponse(
+                product_id=item.product.id,
+                product_name=item.product.name,
+                quantity=item.quantity,
+                price=item.price,
+                subtotal=item.price * item.quantity,
+            )
+        )
+
+    return OrderResponse(
+        id=order.id,
+        total_price=order.total_price,
+        status=order.status,
+        created_at=order.created_at,
+        items=items,
+    )

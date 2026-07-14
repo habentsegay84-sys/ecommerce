@@ -7,6 +7,8 @@ from app.schemas.category import (
     CategoryCreate,
     CategoryResponse,
 )
+from app.auth.dependencies import get_current_admin
+from app.models.user import User
 
 router = APIRouter(
     prefix="/categories",
@@ -21,6 +23,7 @@ router = APIRouter(
 )
 def create_category(
     category: CategoryCreate,
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     existing = (

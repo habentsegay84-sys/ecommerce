@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 from fastapi import Query
-from sqlalchemy.orm import joinedload
 
 from app.database.session import get_db
 from app.models.category import Category
 from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductResponse
+from app.auth.dependencies import get_current_admin
+from app.models.user import User
 
 router = APIRouter(
     prefix="/products",
@@ -18,6 +19,7 @@ router = APIRouter(
 @router.post("", response_model=ProductResponse, status_code=201)
 def create_product(
     product: ProductCreate,
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     category = (

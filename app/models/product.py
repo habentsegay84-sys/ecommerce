@@ -1,7 +1,8 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Column, DateTime, ForeignKey,Float, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
 
 from app.database.base import Base
 
@@ -15,9 +16,16 @@ class Product(Base):
 
     description = Column(String(500), nullable=True)
 
-    price = Column(Numeric(10, 2), nullable=False)
+    price = Column(
+        Float,
+        nullable=False,
+    )
 
-    stock = Column(Integer, default=0)
+    stock = Column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
 
     image_url = Column(String(255), nullable=True)
 

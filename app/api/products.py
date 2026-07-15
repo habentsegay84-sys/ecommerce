@@ -1,46 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import joinedload
-from fastapi import Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session, joinedload
+
 
 from app.database.session import get_db
-from app.models.category import Category
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductResponse
-from app.auth.dependencies import get_current_admin
-from app.models.user import User
+from app.schemas.product import (ProductResponse)
 
 router = APIRouter(
     prefix="/products",
     tags=["Products"],
 )
-
-
-@router.post("", response_model=ProductResponse, status_code=201)
-def create_product(
-    product: ProductCreate,
-    current_admin: User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    category = (
-        db.query(Category)
-        .filter(Category.id == product.category_id)
-        .first()
-    )
-
-    if category is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Category not found",
-        )
-
-    new_product = Product(**product.model_dump())
-
-    db.add(new_product)
-    db.commit()
-    db.refresh(new_product)
-
-    return new_product
 
 @router.get("", response_model=list[ProductResponse])
 def list_products(
@@ -56,6 +25,7 @@ def list_products(
     query = (
         db.query(Product)
         .options(joinedload(Product.category))
+        .filter(Product.is_deleted == False)
     )
 
     if search:

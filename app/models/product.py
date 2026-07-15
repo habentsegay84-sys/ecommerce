@@ -1,8 +1,14 @@
-from sqlalchemy import Column, DateTime, ForeignKey,Float, Integer, Numeric, String
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-
 
 from app.database.base import Base
 
@@ -29,6 +35,12 @@ class Product(Base):
 
     image_url = Column(String(255), nullable=True)
 
+    is_deleted = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+
     category_id = Column(
         Integer,
         ForeignKey("categories.id"),
@@ -43,11 +55,6 @@ class Product(Base):
     category = relationship(
         "Category",
         back_populates="products",
-    )
-
-    cart_items = relationship(
-        "CartItem",
-        back_populates="product",
     )
 
     cart_items = relationship(

@@ -13,6 +13,11 @@ from app.schemas.order import (
     OrderResponse,
     OrderItemResponse,
 )
+from app.models.order_status_history import OrderStatusHistory
+from app.schemas.order_tracking import (
+    OrderTrackingResponse,
+    OrderTrackingHistoryResponse,
+)
 
 router = APIRouter(
     prefix="/orders",
@@ -202,3 +207,55 @@ def get_order(
         created_at=order.created_at,
         items=items,
     )
+
+@router.get(
+    "/{order_id}/tracking",
+    response_model=OrderTrackingResponse,
+)
+def track_order(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.user_id == current_user.id,
+        )
+        .first()
+    )
+
+
+    if order is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Order not found",
+        )
+
+
+    history = (
+        db.query(OrderStatusHistory)
+        .filter(
+            OrderStatusHistory.order_id == order.id
+        )
+        .order_by(
+            OrderStatusHistory.created_at.asc()
+        )
+        .all()
+    )
+
+
+    return {
+        "order_id": order.id,
+        "current_status": order.status,
+        "history": [
+            {
+                "old_status": item.old_status,
+                "new_status": item.new_status,
+                "created_at": item.created_at,
+            }
+            for item in history
+        ],
+    }

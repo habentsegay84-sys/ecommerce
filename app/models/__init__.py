@@ -8,3 +8,4 @@ from app.models.cart_item import CartItem
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.inventory import InventoryLog
+from app.models.order_status_history import OrderStatusHistory

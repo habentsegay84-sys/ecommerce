@@ -7,10 +7,12 @@ from app.auth.dependencies import get_current_admin
 from app.models.user import User
 from app.models.product import Product
 from app.models.category import Category
+from app.models.inventory import InventoryLog
 
 from app.schemas.product import ProductCreate, ProductResponse
 
 from sqlalchemy.orm import joinedload
+
 
 
 router = APIRouter(
@@ -153,11 +155,27 @@ def update_product(
             detail="Category not found",
         )
 
+    old_stock = product.stock
+
     product.name = product_data.name
     product.description = product_data.description
     product.price = product_data.price
     product.stock = product_data.stock
     product.category_id = product_data.category_id
+
+    # Create inventory history if stock changed
+
+    if old_stock != product.stock:
+
+        inventory_log = InventoryLog(
+            product_id=product.id,
+            old_stock=old_stock,
+            new_stock=product.stock,
+            change_type="admin_update",
+            changed_by=current_admin.id,
+        )
+
+        db.add(inventory_log)
 
     db.commit()
     db.refresh(product)

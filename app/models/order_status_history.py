@@ -5,9 +5,9 @@ from sqlalchemy.orm import relationship
 from app.database.base import Base
 
 
-class InventoryLog(Base):
+class OrderStatusHistory(Base):
 
-    __tablename__ = "inventory_logs"
+    __tablename__ = "order_status_history"
 
     id = Column(
         Integer,
@@ -15,24 +15,19 @@ class InventoryLog(Base):
         index=True,
     )
 
-    product_id = Column(
+    order_id = Column(
         Integer,
-        ForeignKey("products.id"),
+        ForeignKey("orders.id"),
         nullable=False,
     )
 
-    old_stock = Column(
-        Integer,
-        nullable=False,
+    old_status = Column(
+        String,
+        nullable=True,
     )
 
-    new_stock = Column(
-        Integer,
-        nullable=False,
-    )
-
-    change_type = Column(
-        String(50),
+    new_status = Column(
+        String,
         nullable=False,
     )
 
@@ -48,11 +43,12 @@ class InventoryLog(Base):
     )
 
 
-    product = relationship(
-        "Product",
-        back_populates="inventory_logs",
+    order = relationship(
+        "Order",
+        back_populates="status_history",
     )
 
+
     user = relationship(
-        "User"
+        "User",
     )

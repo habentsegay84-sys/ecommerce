@@ -66,3 +66,9 @@ class Product(Base):
         "OrderItem",
         back_populates="product",
     )
+
+    inventory_logs = relationship(
+        "InventoryLog",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )

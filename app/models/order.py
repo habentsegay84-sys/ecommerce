@@ -38,6 +38,12 @@ class Order(Base):
         back_populates="orders",
     )
 
+    payment = relationship(
+        "Payment",
+        back_populates="order",
+        uselist=False,
+    )
+
     items = relationship(
         "OrderItem",
         back_populates="order",

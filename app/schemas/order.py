@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class OrderItemResponse(BaseModel):
@@ -9,8 +9,9 @@ class OrderItemResponse(BaseModel):
     price: float
     subtotal: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
 
 class OrderResponse(BaseModel):
@@ -20,5 +21,6 @@ class OrderResponse(BaseModel):
     created_at: datetime
     items: list[OrderItemResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -70,20 +70,25 @@ def pay_order_service(
         payment_method=payment_data.payment_method,
         status=SUCCESSFUL,
         transaction_reference=str(uuid4()),
-        paid_at=datetime.utcnow(),
+        paid_at=datetime.now(timezone.utc),
     )
     # Update the order status before saving the payment.
-    order.status = PROCESSING
+    order_repository.update_status(
+        order,
+        PROCESSING,
+    )
 
-    saved_payment = payment_repository.create(payment)
+    payment_repository.create(payment)
+    db.commit()
+    db.refresh(payment)
 
     # Record the successful payment for auditing purposes.
     logger.info(
         "Payment created | payment_id=%s order_id=%s user_id=%s amount=%s",
-        saved_payment.id,
+        payment.id,
         order.id,
         current_user.id,
         payment.amount,
     )
 
-    return saved_payment
+    return payment

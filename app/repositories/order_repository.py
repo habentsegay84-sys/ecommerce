@@ -29,3 +29,25 @@ class OrderRepository:
             )
             .first()
         )
+    
+    def update_status(
+        self,
+        order: Order,
+        status: str,
+    ) -> Order:
+        """
+        Update the status of an existing order.
+        """
+
+        def update_status(
+            self,
+            order: Order,
+            status: str,
+        ) -> Order:
+            """
+            Update the status of an existing order.
+            """
+
+            order.status = status
+
+            return order

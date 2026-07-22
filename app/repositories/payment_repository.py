@@ -17,8 +17,14 @@ class PaymentRepository:
         Persist a new payment and return the saved entity.
         """
 
+    def create(
+        self,
+        payment: Payment,
+    ) -> Payment:
+        """
+        Add a new payment to the current transaction.
+        """
+
         self.db.add(payment)
-        self.db.commit()
-        self.db.refresh(payment)
 
         return payment

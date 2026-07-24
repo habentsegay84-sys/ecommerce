@@ -24,3 +24,10 @@ class OrderResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True
     )
+
+class CheckoutRequest(BaseModel):
+    """
+    Checkout request.
+    """
+
+    coupon_code: str | None = None

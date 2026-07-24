@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -18,6 +19,9 @@ from app.schemas.order_tracking import (
     OrderTrackingResponse,
     OrderTrackingHistoryResponse,
 )
+from app.schemas.checkout import CheckoutRequest
+from app.models.coupon import Coupon
+from app.schemas.order import CheckoutRequest
 
 router = APIRouter(
     prefix="/orders",
@@ -27,6 +31,7 @@ router = APIRouter(
 
 @router.post("/checkout")
 def checkout(
+    checkout_data: CheckoutRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -53,6 +58,35 @@ def checkout(
         # Calculate total and validate stock
         total_price = 0
 
+        coupon = None
+
+        if checkout_data.coupon_code:
+
+            coupon = (
+                db.query(Coupon)
+                .filter(
+                    Coupon.code == checkout_data.coupon_code,
+                    Coupon.active == True,
+                )
+                .first()
+            )
+
+
+            if coupon is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Coupon not found",
+                )
+
+
+            if (
+                coupon.expires_at
+                and coupon.expires_at < datetime.utcnow()
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Coupon expired",
+                )
         for item in cart.items:
 
             if item.quantity > item.product.stock:
@@ -65,12 +99,18 @@ def checkout(
                 item.product.price
                 * item.quantity
             )
+        if coupon:
+
+            total_price = total_price * (
+                1 - coupon.discount_percent / 100
+            )
 
         # Create order
         order = Order(
             user_id=current_user.id,
             total_price=total_price,
             status="pending",
+            coupon_id=coupon.id if coupon else None,
         )
 
         db.add(order)

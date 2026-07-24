@@ -8,6 +8,7 @@ from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.models.order import Order
 from app.models.payment import Payment
+from app.auth.admin import get_current_admin
 
 from app.schemas.payment import (
     PaymentCreate,
@@ -61,7 +62,7 @@ def pay_order(
 def change_payment_status(
     payment_id: int,
     payment_status: PaymentStatusUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """

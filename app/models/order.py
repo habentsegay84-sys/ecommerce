@@ -55,3 +55,12 @@ class Order(Base):
         back_populates="order",
         cascade="all, delete-orphan",
     )
+    coupon_id = Column(
+        Integer,
+        ForeignKey("coupons.id"),
+        nullable=True,
+    )
+
+    coupon = relationship(
+        "Coupon"
+    )

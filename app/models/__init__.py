@@ -11,3 +11,4 @@ from app.models.inventory import InventoryLog
 from app.models.order_status_history import OrderStatusHistory
 from app.models.payment import Payment
 from app.models.coupon import Coupon
+from app.models.review import Review

@@ -68,6 +68,32 @@ class CouponRepository:
             .all()
         )
 
+    def get_by_id(
+        self,
+        coupon_id: int,
+    ) -> Coupon | None:
+        """
+        Retrieve a coupon by its ID.
+        """
+
+        return (
+            self.db.query(Coupon)
+            .filter(Coupon.id == coupon_id)
+            .first()
+        )
+
+
+    def delete(
+        self,
+        coupon: Coupon,
+    ):
+        """
+        Delete a coupon from the database.
+        """
+
+        self.db.delete(coupon)
+        self.db.commit()
+
     def get_valid_coupon(
     self,
     code: str,

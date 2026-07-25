@@ -2,7 +2,10 @@ from sqlalchemy.orm import Session
 
 from app.models.coupon import Coupon
 from app.repositories.coupon_repository import CouponRepository
-from app.schemas.coupon import CouponCreate
+from app.schemas.coupon import (
+    CouponCreate,
+    CouponUpdate,
+)
 
 def create_coupon_service(
     db: Session,
@@ -32,3 +35,68 @@ def create_coupon_service(
     )
 
     return coupon_repository.create(coupon)
+
+def list_coupons_service(
+    db: Session,
+):
+    """
+    Return all coupons.
+    """
+
+    repository = CouponRepository(db)
+
+    return repository.list_all()
+
+def update_coupon_service(
+    db: Session,
+    coupon_id: int,
+    coupon_data: CouponUpdate,
+):
+    """
+    Update an existing coupon.
+    """
+
+    repository = CouponRepository(db)
+
+    coupon = repository.get_by_id(
+        coupon_id,
+    )
+
+    if coupon is None:
+        raise ValueError(
+            "Coupon not found."
+        )
+
+    update_data = coupon_data.model_dump(
+        exclude_unset=True
+    )
+
+    for key, value in update_data.items():
+        setattr(
+            coupon,
+            key,
+            value,
+        )
+
+    return repository.update(coupon)
+
+def delete_coupon_service(
+    db: Session,
+    coupon_id: int,
+):
+    """
+    Delete a coupon.
+    """
+
+    repository = CouponRepository(db)
+
+    coupon = repository.get_by_id(
+        coupon_id,
+    )
+
+    if coupon is None:
+        raise ValueError(
+            "Coupon not found."
+        )
+
+    repository.delete(coupon)

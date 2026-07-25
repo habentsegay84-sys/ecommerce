@@ -16,6 +16,7 @@ from app.api.admin.orders import router as admin_orders_router
 from app.api.payments import router as payments_router
 from app.api.admin.payments import router as admin_payments_router
 from app.api.coupons import router as coupons_router
+from app.api.reviews import router as review_router
 
 import app.models
 
@@ -34,6 +35,7 @@ app.include_router(admin_orders_router)
 app.include_router(payments_router)
 app.include_router(admin_payments_router)
 app.include_router(coupons_router)
+app.include_router(review_router)
 
 @app.get("/")
 def home():

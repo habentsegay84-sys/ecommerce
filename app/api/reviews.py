@@ -18,6 +18,7 @@ from app.services.review_service import (
     create_review_service,
     list_product_reviews_service,
     update_review_service,
+    delete_review_service,
 )
 
 router = APIRouter(
@@ -82,5 +83,23 @@ def update_review(
         db=db,
         review_id=review_id,
         review_data=review_data,
+        current_user=current_user,
+    )
+
+@router.delete(
+    "/{review_id}",
+)
+def delete_review(
+    review_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete your review.
+    """
+
+    return delete_review_service(
+        db=db,
+        review_id=review_id,
         current_user=current_user,
     )

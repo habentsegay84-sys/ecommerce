@@ -101,3 +101,14 @@ class ReviewRepository:
             )
             .first()
         )
+
+    def delete(
+        self,
+        review: Review,
+    ):
+        """
+        Delete a review.
+        """
+
+        self.db.delete(review)
+        self.db.commit()

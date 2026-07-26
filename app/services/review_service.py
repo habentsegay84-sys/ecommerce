@@ -110,3 +110,34 @@ def update_review_service(
         review.comment = review_data.comment
 
     return repository.update(review)
+
+def delete_review_service(
+    db: Session,
+    review_id: int,
+    current_user: User,
+):
+    """
+    Delete the authenticated user's review.
+    """
+
+    repository = ReviewRepository(db)
+
+    review = repository.get_by_id(
+        review_id,
+    )
+
+    if review is None:
+        raise ValueError(
+            "Review not found."
+        )
+
+    if review.user_id != current_user.id:
+        raise ValueError(
+            "You can only delete your own review."
+        )
+
+    repository.delete(review)
+
+    return {
+        "message": "Review deleted successfully."
+    }

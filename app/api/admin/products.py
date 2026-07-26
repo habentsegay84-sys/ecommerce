@@ -5,15 +5,13 @@ from app.database.session import get_db
 from app.auth.dependencies import get_current_admin
 
 from app.models.user import User
-from app.models.product import Product
-from app.models.category import Category
-from app.models.inventory import InventoryLog
 
 from app.schemas.product import ProductCreate, ProductResponse
 
-from sqlalchemy.orm import joinedload
-
-
+from app.services.product_service import (
+    list_admin_products_service,
+    create_product_service,
+)
 
 router = APIRouter(
     prefix="/admin/products",
@@ -34,56 +32,14 @@ def list_admin_products(
     db: Session = Depends(get_db),
 ):
 
-    query = (
-        db.query(Product)
-        .options(joinedload(Product.category))
+    return list_admin_products_service(
+        db=db,
+        status=status,
+        search=search,
+        category_id=category_id,
+        page=page,
+        limit=limit,
     )
-
-
-    # Filter by status
-
-    if status == "active":
-        query = query.filter(
-            Product.is_deleted == False
-        )
-
-    elif status == "deleted":
-        query = query.filter(
-            Product.is_deleted == True
-        )
-
-
-    # Search
-
-    if search:
-        query = query.filter(
-            Product.name.ilike(
-                f"%{search}%"
-            )
-        )
-
-
-    # Category filter
-
-    if category_id:
-        query = query.filter(
-            Product.category_id == category_id
-        )
-
-
-    # Pagination
-
-    offset = (page - 1) * limit
-
-    products = (
-        query
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-
-
-    return products
 
 @router.post(
     "",
@@ -96,28 +52,17 @@ def create_product(
     db: Session = Depends(get_db),
 ):
 
-    category = (
-        db.query(Category)
-        .filter(Category.id == product.category_id)
-        .first()
-    )
-
-    if category is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Category not found",
+    try:
+        return create_product_service(
+            db=db,
+            product_data=product,
         )
 
-    new_product = Product(
-        **product.model_dump()
-    )
-
-    db.add(new_product)
-    db.commit()
-    db.refresh(new_product)
-
-    return new_product
-
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e),
+        )
 @router.patch(
     "/{product_id}",
     response_model=ProductResponse,

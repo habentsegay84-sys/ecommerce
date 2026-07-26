@@ -22,6 +22,9 @@ class ProductResponse(BaseModel):
     stock: int
     image_url: str | None
 
+    average_rating: float | None = None
+    review_count: int = 0
+
     category: CategorySimple
 
     created_at: datetime

@@ -1,17 +1,24 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session, joinedload
-
+from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models.product import Product
 from app.schemas.product import (ProductResponse)
+from app.repositories.product_repository import ProductRepository
+
+from app.services.product_service import (
+    list_products_service,
+    get_product_service,
+)
 
 router = APIRouter(
     prefix="/products",
     tags=["Products"],
 )
 
-@router.get("", response_model=list[ProductResponse])
+@router.get(
+    "",
+    response_model=list[ProductResponse],
+)
 def list_products(
     search: str | None = Query(default=None),
     category_id: int | None = Query(default=None),
@@ -22,30 +29,30 @@ def list_products(
     limit: int = Query(default=10, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    query = (
-        db.query(Product)
-        .options(joinedload(Product.category))
-        .filter(Product.is_deleted == False)
+    return list_products_service(
+        db=db,
+        search=search,
+        category_id=category_id,
+        min_price=min_price,
+        max_price=max_price,
+        sort=sort,
+        page=page,
+        limit=limit,
     )
 
-    if search:
-        query = query.filter(Product.name.ilike(f"%{search}%"))
+@router.get(
+    "/{product_id}",
+    response_model=ProductResponse,
+)
+def get_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieve one product by ID.
+    """
 
-    if category_id:
-        query = query.filter(Product.category_id == category_id)
-
-    if min_price is not None:
-        query = query.filter(Product.price >= min_price)
-
-    if max_price is not None:
-        query = query.filter(Product.price <= max_price)
-
-    if sort == "price":
-        query = query.order_by(Product.price)
-
-    elif sort == "-price":
-        query = query.order_by(Product.price.desc())
-
-    offset = (page - 1) * limit
-
-    return query.offset(offset).limit(limit).all()
+    return get_product_service(
+        db=db,
+        product_id=product_id,
+    )

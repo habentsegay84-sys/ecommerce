@@ -22,6 +22,12 @@ from app.schemas.order_tracking import (
 from app.schemas.checkout import CheckoutRequest
 from app.models.coupon import Coupon
 from app.schemas.order import CheckoutRequest
+from app.services.order_service import (
+    list_orders_service,
+    get_order_service,
+    track_order_service,
+    checkout_service
+)
 
 router = APIRouter(
     prefix="/orders",
@@ -36,114 +42,12 @@ def checkout(
     db: Session = Depends(get_db),
 ):
     try:
-        # Find the user's cart
-        cart = (
-            db.query(Cart)
-            .filter(Cart.user_id == current_user.id)
-            .first()
-        )
 
-        if not cart:
-            raise HTTPException(
-                status_code=404,
-                detail="Cart not found",
-            )
-
-        if not cart.items:
-            raise HTTPException(
-                status_code=400,
-                detail="Cart is empty",
-            )
-
-        # Calculate total and validate stock
-        total_price = 0
-
-        coupon = None
-
-        if checkout_data.coupon_code:
-
-            coupon = (
-                db.query(Coupon)
-                .filter(
-                    Coupon.code == checkout_data.coupon_code,
-                    Coupon.active == True,
-                )
-                .first()
-            )
-
-
-            if coupon is None:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Coupon not found",
-                )
-
-
-            if (
-                coupon.expires_at
-                and coupon.expires_at < datetime.utcnow()
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Coupon expired",
-                )
-        for item in cart.items:
-
-            if item.quantity > item.product.stock:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Not enough stock for {item.product.name}",
-                )
-
-            total_price += (
-                item.product.price
-                * item.quantity
-            )
-        if coupon:
-
-            total_price = total_price * (
-                1 - coupon.discount_percent / 100
-            )
-
-        # Create order
-        order = Order(
+        order = checkout_service(
+            db=db,
             user_id=current_user.id,
-            total_price=total_price,
-            status="pending",
-            coupon_id=coupon.id if coupon else None,
+            checkout_data=checkout_data,
         )
-
-        db.add(order)
-
-        # Get order.id without committing
-        db.flush()
-
-        # Create order items and reduce stock
-        for item in cart.items:
-
-            order_item = OrderItem(
-                order_id=order.id,
-                product_id=item.product_id,
-                quantity=item.quantity,
-                price=item.product.price,
-            )
-
-            db.add(order_item)
-
-            # Reduce stock
-            item.product.stock -= item.quantity
-
-        # Clear cart
-        (
-            db.query(CartItem)
-            .filter(CartItem.cart_id == cart.id)
-            .delete()
-        )
-
-        # One commit for everything
-        db.commit()
-
-        db.refresh(order)
 
         return {
             "message": "Order created successfully",
@@ -151,59 +55,30 @@ def checkout(
             "total_price": order.total_price,
         }
 
-    except Exception:
-        db.rollback()
-        raise
+    except ValueError as e:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 
 @router.get(
     "",
-    response_model=list[OrderResponse]
+    response_model=list[OrderResponse],
 )
 def list_orders(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
 
-    orders = (
-        db.query(Order)
-        .filter(Order.user_id == current_user.id)
-        .order_by(Order.created_at.desc())
-        .all()
+    return list_orders_service(
+        db=db,
+        user_id=current_user.id,
     )
-
-    response = []
-
-    for order in orders:
-
-        items = []
-
-        for item in order.items:
-
-            items.append(
-                OrderItemResponse(
-                    product_id=item.product.id,
-                    product_name=item.product.name,
-                    quantity=item.quantity,
-                    price=item.price,
-                    subtotal=item.price * item.quantity,
-                )
-            )
-
-        response.append(
-            OrderResponse(
-                id=order.id,
-                total_price=order.total_price,
-                status=order.status,
-                created_at=order.created_at,
-                items=items,
-            )
-        )
-
-    return response
 
 @router.get(
     "/{order_id}",
-    response_model=OrderResponse
+    response_model=OrderResponse,
 )
 def get_order(
     order_id: int,
@@ -211,42 +86,18 @@ def get_order(
     db: Session = Depends(get_db),
 ):
 
-    order = (
-        db.query(Order)
-        .filter(
-            Order.id == order_id,
-            Order.user_id == current_user.id,
+    try:
+        return get_order_service(
+            db=db,
+            order_id=order_id,
+            user_id=current_user.id,
         )
-        .first()
-    )
 
-    if not order:
+    except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail="Order not found",
+            detail=str(e),
         )
-
-    items = []
-
-    for item in order.items:
-
-        items.append(
-            OrderItemResponse(
-                product_id=item.product.id,
-                product_name=item.product.name,
-                quantity=item.quantity,
-                price=item.price,
-                subtotal=item.price * item.quantity,
-            )
-        )
-
-    return OrderResponse(
-        id=order.id,
-        total_price=order.total_price,
-        status=order.status,
-        created_at=order.created_at,
-        items=items,
-    )
 
 @router.get(
     "/{order_id}/tracking",
@@ -258,44 +109,15 @@ def track_order(
     db: Session = Depends(get_db),
 ):
 
-    order = (
-        db.query(Order)
-        .filter(
-            Order.id == order_id,
-            Order.user_id == current_user.id,
+    try:
+        return track_order_service(
+            db=db,
+            order_id=order_id,
+            user_id=current_user.id,
         )
-        .first()
-    )
 
-
-    if order is None:
+    except ValueError as e:
         raise HTTPException(
             status_code=404,
-            detail="Order not found",
+            detail=str(e),
         )
-
-
-    history = (
-        db.query(OrderStatusHistory)
-        .filter(
-            OrderStatusHistory.order_id == order.id
-        )
-        .order_by(
-            OrderStatusHistory.created_at.asc()
-        )
-        .all()
-    )
-
-
-    return {
-        "order_id": order.id,
-        "current_status": order.status,
-        "history": [
-            {
-                "old_status": item.old_status,
-                "new_status": item.new_status,
-                "created_at": item.created_at,
-            }
-            for item in history
-        ],
-    }

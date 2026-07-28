@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.order import Order
-
+from app.models.order_status_history import OrderStatusHistory
 
 class OrderRepository:
     """
@@ -31,23 +31,99 @@ class OrderRepository:
         )
     
     def update_status(
+    self,
+    order: Order,
+    status: str,
+    ):
+        """
+        Update an order's status.
+        """
+
+        order.status = status
+
+        self.db.commit()
+        self.db.refresh(order)
+
+        return order
+    
+    def create(
         self,
         order: Order,
-        status: str,
-    ) -> Order:
+    ):
         """
-        Update the status of an existing order.
+        Save a new order.
         """
 
-        def update_status(
-            self,
-            order: Order,
-            status: str,
-        ) -> Order:
-            """
-            Update the status of an existing order.
-            """
+        self.db.add(order)
+        self.db.commit()
+        self.db.refresh(order)
 
-            order.status = status
+        return order
 
-            return order
+    def get_by_id(
+        self,
+        order_id: int,
+    ):
+        """
+        Retrieve an order by ID.
+        """
+
+        return (
+            self.db.query(Order)
+            .filter(Order.id == order_id)
+            .first()
+        )
+
+    def update(
+        self,
+        order: Order,
+    ):
+        """
+        Save changes to an order.
+        """
+
+        self.db.commit()
+        self.db.refresh(order)
+
+        return order
+
+    def list_by_user(
+        self,
+        user_id: int,
+    ):
+        """
+        Return all orders belonging to a user.
+        """
+
+        return (
+            self.db.query(Order)
+            .filter(Order.user_id == user_id)
+            .order_by(Order.id.desc())
+            .all()
+        )
+
+    def get_tracking_history(
+        self,
+        order_id: int,
+    ):
+        """
+        Return tracking history for an order.
+        """
+
+        return (
+            self.db.query(OrderStatusHistory)
+            .filter(
+                OrderStatusHistory.order_id == order_id,
+            )
+            .order_by(
+                OrderStatusHistory.created_at.asc()
+            )
+            .all()
+        )
+
+    def flush(self):
+        """
+        Flush pending database changes.
+        """
+
+        self.db.flush()

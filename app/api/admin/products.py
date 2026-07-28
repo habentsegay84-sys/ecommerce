@@ -11,7 +11,11 @@ from app.schemas.product import ProductCreate, ProductResponse
 from app.services.product_service import (
     list_admin_products_service,
     create_product_service,
+    update_product_service,
+    delete_product_service,
+    restore_product_service,
 )
+
 
 router = APIRouter(
     prefix="/admin/products",
@@ -63,6 +67,7 @@ def create_product(
             status_code=404,
             detail=str(e),
         )
+    
 @router.patch(
     "/{product_id}",
     response_model=ProductResponse,
@@ -73,59 +78,27 @@ def update_product(
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
+    
+    try:
+        return update_product_service(
+            db=db,
+            product_id=product_id,
+            product_data=product_data,
+            admin_id=current_admin.id,
+        )
 
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id)
-        .first()
-    )
+    except ValueError as e:
 
-    if product is None:
+        if str(e) == "Product not found":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
         raise HTTPException(
-            status_code=404,
-            detail="Product not found",
+            status_code=400,
+            detail=str(e),
         )
-
-    category = (
-        db.query(Category)
-        .filter(
-            Category.id == product_data.category_id
-        )
-        .first()
-    )
-
-    if category is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Category not found",
-        )
-
-    old_stock = product.stock
-
-    product.name = product_data.name
-    product.description = product_data.description
-    product.price = product_data.price
-    product.stock = product_data.stock
-    product.category_id = product_data.category_id
-
-    # Create inventory history if stock changed
-
-    if old_stock != product.stock:
-
-        inventory_log = InventoryLog(
-            product_id=product.id,
-            old_stock=old_stock,
-            new_stock=product.stock,
-            change_type="admin_update",
-            changed_by=current_admin.id,
-        )
-
-        db.add(inventory_log)
-
-    db.commit()
-    db.refresh(product)
-
-    return product
 
 @router.delete(
     "/{product_id}",
@@ -137,27 +110,24 @@ def delete_product(
     db: Session = Depends(get_db),
 ):
 
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id)
-        .first()
-    )
-
-    if product is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Product not found",
+    try:
+        delete_product_service(
+            db=db,
+            product_id=product_id,
         )
 
-    if product.is_deleted:
+    except ValueError as e:
+
+        if str(e) == "Product not found":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
         raise HTTPException(
             status_code=400,
-            detail="Product already deleted",
+            detail=str(e),
         )
-
-    product.is_deleted = True
-
-    db.commit()
 
 @router.patch(
     "/{product_id}/restore",
@@ -169,27 +139,21 @@ def restore_product(
     db: Session = Depends(get_db),
 ):
 
-    product = (
-        db.query(Product)
-        .filter(Product.id == product_id)
-        .first()
-    )
-
-    if product is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Product not found",
+    try:
+        return restore_product_service(
+            db=db,
+            product_id=product_id,
         )
 
-    if not product.is_deleted:
+    except ValueError as e:
+
+        if str(e) == "Product not found":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
         raise HTTPException(
             status_code=400,
-            detail="Product is already active",
+            detail=str(e),
         )
-
-    product.is_deleted = False
-
-    db.commit()
-    db.refresh(product)
-
-    return product

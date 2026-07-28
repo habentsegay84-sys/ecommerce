@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.models.product import Product
 from app.repositories.product_repository import ProductRepository
 from app.models.category import Category
+from app.models.inventory import InventoryLog
+from app.repositories.inventory_repository import InventoryRepository
 
 def list_products_service(
     db: Session,
@@ -157,14 +159,16 @@ def update_product_service(
     db: Session,
     product_id: int,
     product_data,
+    admin_id: int,
 ):
     """
     Update an existing product.
     """
 
-    repository = ProductRepository(db)
+    product_repository = ProductRepository(db)
+    inventory_repository = InventoryRepository(db)
 
-    product = repository.get_by_id(
+    product = product_repository.get_by_id(
         product_id
     )
 
@@ -173,22 +177,40 @@ def update_product_service(
             "Product not found"
         )
 
-    if product_data.name is not None:
-        product.name = product_data.name
+    category = (
+        db.query(Category)
+        .filter(
+            Category.id == product_data.category_id
+        )
+        .first()
+    )
 
-    if product_data.description is not None:
-        product.description = product_data.description
+    if category is None:
+        raise ValueError(
+            "Category not found"
+        )
 
-    if product_data.price is not None:
-        product.price = product_data.price
+    old_stock = product.stock
 
-    if product_data.stock is not None:
-        product.stock = product_data.stock
+    product.name = product_data.name
+    product.description = product_data.description
+    product.price = product_data.price
+    product.stock = product_data.stock
+    product.category_id = product_data.category_id
 
-    if product_data.category_id is not None:
-        product.category_id = product_data.category_id
+    if old_stock != product.stock:
 
-    return repository.update(product)
+        inventory_repository.create_log(
+            InventoryLog(
+                product_id=product.id,
+                old_stock=old_stock,
+                new_stock=product.stock,
+                change_type="admin_update",
+                changed_by=admin_id,
+            )
+        )
+
+    return product_repository.update(product)
 
 def delete_product_service(
     db: Session,
@@ -207,6 +229,11 @@ def delete_product_service(
     if product is None:
         raise ValueError(
             "Product not found"
+        )
+
+    if product.is_deleted:
+        raise ValueError(
+            "Product already deleted"
         )
 
     return repository.delete(product)
@@ -229,6 +256,11 @@ def restore_product_service(
         raise ValueError(
             "Product not found"
         )
+    
+    if not product.is_deleted:
+        raise ValueError(
+            "Product is already active"
+        )    
 
     return repository.restore(product)
 

@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 
 from app.models.product import Product
 from app.repositories.product_repository import ProductRepository

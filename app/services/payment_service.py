@@ -45,7 +45,7 @@ def pay_order_service(
     payment_repository = PaymentRepository(db)
 
     # Retrieve the authenticated user's order.
-    order = order_repository.get_user_order(
+    order = order_repository.get_with_payment(
         order_id=order_id,
         user_id=current_user.id,
     )
@@ -69,13 +69,10 @@ def pay_order_service(
 
         raise OrderAlreadyPaidError()
 
-    payment = Payment(
+    payment = payment_repository.build_payment(
         order_id=order.id,
         amount=order.total_price,
         payment_method=payment_data.payment_method,
-        status=SUCCESSFUL,
-        transaction_reference=str(uuid4()),
-        paid_at=None,
     )
     # Update the order status before saving the payment.
     order_repository.update_status(
@@ -84,19 +81,17 @@ def pay_order_service(
     )
 
     payment_repository.create(payment)
-    db.commit()
-    db.refresh(payment)
 
     # Record the successful payment for auditing purposes.
     logger.info(
-        "Payment created | payment_id=%s order_id=%s user_id=%s amount=%s",
+        "Payment status updated | payment_id=%s status=%s",
         payment.id,
-        order.id,
-        current_user.id,
-        payment.amount,
+        payment.status,
     )
 
-    return payment
+    return payment_repository.update(
+        payment,
+    ) 
 
 def update_payment_status(
     db: Session,
@@ -115,18 +110,13 @@ def update_payment_status(
 
     payment_repository = PaymentRepository(db)
 
-    payment = (
-        db.query(Payment)
-        .filter(
-            Payment.id == payment_id
-        )
-        .first()
+    payment = payment_repository.get_by_id(
+        payment_id,
     )
 
     if payment is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Payment not found",
+        raise ValueError(
+            "Payment not found"
         )
 
 
@@ -139,9 +129,8 @@ def update_payment_status(
 
 
     if status not in valid_statuses:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid payment status",
+        raise ValueError(
+            "Invalid payment status"
         )
 
 
@@ -156,14 +145,33 @@ def update_payment_status(
         payment.paid_at = datetime.now(timezone.utc)
 
 
-    db.commit()
-    db.refresh(payment)
-
     logger.info(
         "Payment status updated | payment_id=%s status=%s",
         payment.id,
         payment.status,
     )
 
+    return payment_repository.update(
+        payment,
+    )
 
-    return payment
+def list_payments_service(
+    db: Session,
+    status: str | None,
+    payment_method: str | None,
+    page: int,
+    limit: int,
+):
+    """
+    Retrieve payments for
+    the admin dashboard.
+    """
+
+    repository = PaymentRepository(db)
+
+    return repository.list_all(
+        status=status,
+        payment_method=payment_method,
+        page=page,
+        limit=limit,
+    )

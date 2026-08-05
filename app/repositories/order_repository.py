@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.models.order import Order
 from app.models.order_status_history import OrderStatusHistory
+from sqlalchemy.orm import joinedload
 
 class OrderRepository:
     """
@@ -23,6 +24,29 @@ class OrderRepository:
 
         return (
             self.db.query(Order)
+            .filter(
+                Order.id == order_id,
+                Order.user_id == user_id,
+            )
+            .first()
+        )
+
+    def get_with_payment(
+        self,
+        order_id: int,
+        user_id: int,
+    ):
+        """
+        Retrieve a user's order together
+        with its payment relationship.
+        """
+
+
+        return (
+            self.db.query(Order)
+            .options(
+                joinedload(Order.payment)
+            )
             .filter(
                 Order.id == order_id,
                 Order.user_id == user_id,

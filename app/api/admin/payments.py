@@ -10,6 +10,10 @@ from app.models.order import Order
 
 from app.schemas.admin_payment import AdminPaymentResponse
 from app.schemas.payment_update import PaymentUpdate
+from app.services.payment_service import (
+    list_payments_service,
+    update_payment_status,
+)
 
 
 router = APIRouter(
@@ -25,75 +29,48 @@ def list_payments(
     payment_method: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
-
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
 
-    query = (
-        db.query(Payment)
-        .options(
-            joinedload(Payment.order)
-            .joinedload(Order.user)
-        )
+    return list_payments_service(
+        db=db,
+        status=status,
+        payment_method=payment_method,
+        page=page,
+        limit=limit,
     )
-
-
-    # Filter by payment status
-
-    if status:
-        query = query.filter(
-            Payment.status == status
-        )
-
-
-    # Filter by payment method
-
-    if payment_method:
-        query = query.filter(
-            Payment.payment_method == payment_method
-        )
-
-
-    # Pagination
-
-    offset = (page - 1) * limit
-
-    payments = (
-        query
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-
-
-    return payments
 
 @router.patch("/{payment_id}")
-def update_payment_status(
+def update_payment_status_admin(
     payment_id: int,
     payment_data: PaymentUpdate,
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    payment = (
-        db.query(Payment)
-        .filter(Payment.id == payment_id)
-        .first()
-    )
+    try:
 
-    if payment is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Payment not found",
+        payment = update_payment_status(
+            db=db,
+            payment_id=payment_id,
+            status=payment_data.status,
         )
 
-    payment.status = payment_data.status
+        return {
+            "message": "Payment updated successfully",
+            "payment": payment,
+        }
 
-    db.commit()
-    db.refresh(payment)
+    except ValueError as e:
 
-    return {
-        "message": "Payment updated successfully",
-        "payment": payment,
-    }
+        if str(e) == "Payment not found":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    

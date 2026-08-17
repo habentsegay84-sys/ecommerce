@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
@@ -171,6 +171,7 @@ def checkout_service(
 
     coupon = None
 
+    # Find coupon only when one was provided.
     if checkout_data.coupon_code:
 
         coupon = (
@@ -187,35 +188,41 @@ def checkout_service(
                 "Coupon not found"
             )
 
-        if (
-            coupon.expires_at
-            and coupon.expires_at < datetime.utcnow()
-        ):
-            raise ValueError(
-                "Coupon expired"
-            )
+        if coupon.expires_at:
 
-        total_price = 0
+            expires_at = coupon.expires_at
 
-        for item in cart.items:
-
-            if item.quantity > item.product.stock:
-                raise ValueError(
-                    f"Not enough stock for {item.product.name}"
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(
+                    tzinfo=timezone.utc
                 )
 
-            total_price += (
-                item.product.price
-                * item.quantity
+            if expires_at < datetime.now(timezone.utc):
+                raise ValueError(
+                    "Coupon expired"
+                )
+    # Calculate cart total.
+    total_price = 0
+
+    for item in cart.items:
+
+        if item.quantity > item.product.stock:
+            raise ValueError(
+                f"Not enough stock for {item.product.name}"
             )
 
-        if coupon:
+        total_price += (
+            item.product.price
+            * item.quantity
+        )
 
-            total_price = total_price * (
-                1 - coupon.discount_percent / 100
-            ) 
+    # Apply coupon discount.
+    if coupon:
+        total_price = total_price * (
+            1 - coupon.discount_percent / 100
+        )
 
-        order = Order(
+    order = Order(
         user_id=user_id,
         total_price=total_price,
         status="pending",
@@ -226,30 +233,35 @@ def checkout_service(
         ),
     )
 
-    repository.create(order)
+    try:
+        repository.create(order)
 
-    for item in cart.items:
+        for item in cart.items:
 
-        order_item = OrderItem(
-            order_id=order.id,
-            product_id=item.product_id,
-            quantity=item.quantity,
-            price=item.product.price,
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item.product_id,
+                quantity=item.quantity,
+                price=item.product.price,
+            )
+
+            db.add(order_item)
+
+            item.product.stock -= item.quantity
+
+        (
+            db.query(CartItem)
+            .filter(
+                CartItem.cart_id == cart.id
+            )
+            .delete()
         )
 
-        db.add(order_item)
+        db.commit()
+        db.refresh(order)
 
-        item.product.stock -= item.quantity
+        return order
 
-    (
-        db.query(CartItem)
-        .filter(
-            CartItem.cart_id == cart.id
-        )
-        .delete()
-    )
-
-    db.commit()
-    db.refresh(order)
-
-    return order
+    except Exception:
+        db.rollback()
+        raise

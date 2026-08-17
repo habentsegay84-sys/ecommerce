@@ -7,13 +7,20 @@ from app.auth.jwt import decode_access_token
 from app.database.session import get_db
 from app.models.user import User
 
-security = HTTPBearer()
-
+security = HTTPBearer(
+    auto_error=False
+)
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
 ):
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
     token = credentials.credentials
 
     payload = decode_access_token(token)
@@ -21,19 +28,35 @@ def get_current_user(
     if payload is None:
         raise HTTPException(
             status_code=401,
-            detail="Invalid token"
+            detail="Invalid token",
+        )
+
+    user_id = payload.get("sub")
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+        )
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
         )
 
     user = (
         db.query(User)
-        .filter(User.id == int(payload["sub"]))
+        .filter(User.id == user_id)
         .first()
     )
 
     if user is None:
         raise HTTPException(
             status_code=401,
-            detail="User not found"
+            detail="User not found",
         )
 
     return user

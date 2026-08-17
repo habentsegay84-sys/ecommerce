@@ -1,4 +1,3 @@
-
 import os
 
 os.environ["DATABASE_URL"] = (
@@ -9,38 +8,35 @@ import pytest
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from fastapi.testclient import TestClient
 
 from app.database.base import Base
+from app.database.session import get_db
+
+from app.main import app
 
 from app.models.user import User
 from app.models.order import Order
 
-from fastapi.testclient import TestClient
-
-from app.main import app
-
+from app.core.security import hash_password
+from app.models.payment import Payment
 
 
-@pytest.fixture
-def client():
-    """
-    Provides a FastAPI test client.
-    """
-
-    return TestClient(app)
-
-
+# ============================================================
 # Test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# ============================================================
 
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={
-        "check_same_thread": False
+        "check_same_thread": False,
     },
+    poolclass=StaticPool,
 )
-
 
 TestingSessionLocal = sessionmaker(
     autocommit=False,
@@ -48,6 +44,10 @@ TestingSessionLocal = sessionmaker(
     bind=engine,
 )
 
+
+# ============================================================
+# Database fixture
+# ============================================================
 
 @pytest.fixture
 def db():
@@ -72,6 +72,31 @@ def db():
             bind=engine
         )
 
+
+# ============================================================
+# FastAPI client
+# ============================================================
+
+@pytest.fixture
+def client(db):
+    """
+    Provides a FastAPI test client using
+    the test database.
+    """
+
+    def override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    yield TestClient(app)
+
+    app.dependency_overrides.clear()
+
+# ============================================================
+# Test user
+# ============================================================
+
 @pytest.fixture
 def test_user(db):
     """
@@ -81,7 +106,7 @@ def test_user(db):
     user = User(
         username="testuser",
         email="test@example.com",
-        hashed_password="password123",
+        hashed_password=hash_password("password123")
     )
 
     db.add(user)
@@ -89,6 +114,11 @@ def test_user(db):
     db.refresh(user)
 
     return user
+
+
+# ============================================================
+# Test order
+# ============================================================
 
 @pytest.fixture
 def test_order(
@@ -112,6 +142,34 @@ def test_order(
     return order
 
 @pytest.fixture
+def test_payment(
+    db,
+    test_order,
+):
+    """
+    Create a pending payment for the test order.
+    """
+
+    payment = Payment(
+        order_id=test_order.id,
+        amount=test_order.total_price,
+        payment_method="cash",
+        status="pending",
+        transaction_reference="test-transaction-123",
+    )
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    return payment
+
+
+# ============================================================
+# Another user
+# ============================================================
+
+@pytest.fixture
 def another_user(db):
     """
     Creates another user for security testing.
@@ -120,7 +178,7 @@ def another_user(db):
     user = User(
         username="anotheruser",
         email="another@example.com",
-        hashed_password="password123",
+        hashed_password=hash_password("password123"),
     )
 
     db.add(user)
@@ -128,3 +186,42 @@ def another_user(db):
     db.refresh(user)
 
     return user
+
+@pytest.fixture
+def admin_user(db):
+    """
+    Create an administrator user for testing.
+    """
+
+    user = User(
+        username="adminuser",
+        email="admin@example.com",
+        hashed_password=hash_password("password123"),
+        role="admin",
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+@pytest.fixture
+def test_payment(db, test_order):
+    """
+    Create a pending payment for the test order.
+    """
+
+    payment = Payment(
+        order_id=test_order.id,
+        amount=test_order.total_price,
+        payment_method="cash",
+        status="pending",
+        transaction_reference="test-transaction-123",
+    )
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+
+    return payment

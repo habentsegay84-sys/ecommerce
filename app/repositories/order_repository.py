@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 
 from app.models.order import Order
 from app.models.order_status_history import OrderStatusHistory
-from sqlalchemy.orm import joinedload
+from app.models.order_item import OrderItem
 
 class OrderRepository:
     """
@@ -75,12 +76,14 @@ class OrderRepository:
         order: Order,
     ):
         """
-        Save a new order.
+        Add a new order to the current transaction.
+
+        The service layer is responsible for committing
+        or rolling back the transaction.
         """
 
         self.db.add(order)
-        self.db.commit()
-        self.db.refresh(order)
+        self.db.flush()
 
         return order
 
@@ -142,6 +145,37 @@ class OrderRepository:
             .order_by(
                 OrderStatusHistory.created_at.asc()
             )
+            .all()
+        )
+
+    def list_all(
+        self,
+        status: str | None = None,
+    ):
+        """
+        Retrieve all orders with their associated customer
+        and product information.
+
+        An optional status filter can be applied.
+        """
+
+        query = (
+            self.db.query(Order)
+            .options(
+                joinedload(Order.user),
+                joinedload(Order.items)
+                .joinedload(OrderItem.product),
+            )
+        )
+
+        if status:
+            query = query.filter(
+                Order.status == status
+            )
+
+        return (
+            query
+            .order_by(Order.created_at.desc())
             .all()
         )
 

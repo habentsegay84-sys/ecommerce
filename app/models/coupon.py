@@ -41,11 +41,11 @@ class Coupon(Base):
     )
 
     expires_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
     )
 
     created_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )

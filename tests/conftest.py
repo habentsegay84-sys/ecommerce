@@ -206,22 +206,3 @@ def admin_user(db):
 
     return user
 
-@pytest.fixture
-def test_payment(db, test_order):
-    """
-    Create a pending payment for the test order.
-    """
-
-    payment = Payment(
-        order_id=test_order.id,
-        amount=test_order.total_price,
-        payment_method="cash",
-        status="pending",
-        transaction_reference="test-transaction-123",
-    )
-
-    db.add(payment)
-    db.commit()
-    db.refresh(payment)
-
-    return payment

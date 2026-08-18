@@ -1,9 +1,5 @@
 from fastapi.testclient import TestClient
 
-
-from fastapi.testclient import TestClient
-
-
 def get_auth_headers(
     client: TestClient,
     username: str = "testuser",

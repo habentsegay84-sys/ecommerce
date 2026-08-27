@@ -1,11 +1,14 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import HTTPException
 
 from sqlalchemy.orm import Session
 
+from app.auth.admin import get_current_admin
 from app.database.session import get_db
 
 from app.models.user import User
+
 from app.schemas.coupon import (
     CouponCreate,
     CouponUpdate,
@@ -18,12 +21,13 @@ from app.services.coupon_service import (
     update_coupon_service,
     delete_coupon_service,
 )
-from app.auth.admin import get_current_admin
+
 
 router = APIRouter(
     prefix="/coupons",
     tags=["Coupons"],
 )
+
 
 @router.post(
     "",
@@ -36,12 +40,30 @@ def create_coupon(
 ):
     """
     Create a new coupon.
+
+    Only authenticated administrators can create coupons.
+    Business-rule validation is delegated to the service layer,
+    while service errors are translated into HTTP responses here.
     """
 
-    return create_coupon_service(
-        db=db,
-        coupon_data=coupon_data,
-    )
+    try:
+        return create_coupon_service(
+            db=db,
+            coupon_data=coupon_data,
+        )
+
+    except ValueError as e:
+        if str(e) == "Coupon code already exists.":
+            raise HTTPException(
+                status_code=400,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+
 
 @router.get(
     "",
@@ -52,10 +74,15 @@ def list_coupons(
     db: Session = Depends(get_db),
 ):
     """
-    List all coupons.
+    Return all coupons.
+
+    Coupon management is restricted to administrators.
     """
 
-    return list_coupons_service(db)
+    return list_coupons_service(
+        db=db,
+    )
+
 
 @router.patch(
     "/{coupon_id}",
@@ -68,14 +95,31 @@ def update_coupon(
     db: Session = Depends(get_db),
 ):
     """
-    Update a coupon.
+    Update an existing coupon.
+
+    The service layer validates that the coupon exists
+    and applies the requested partial update.
     """
 
-    return update_coupon_service(
-        db=db,
-        coupon_id=coupon_id,
-        coupon_data=coupon_data,
-    )
+    try:
+        return update_coupon_service(
+            db=db,
+            coupon_id=coupon_id,
+            coupon_data=coupon_data,
+        )
+
+    except ValueError as e:
+        if str(e) == "Coupon not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+
 
 @router.delete(
     "/{coupon_id}",
@@ -86,14 +130,29 @@ def delete_coupon(
     db: Session = Depends(get_db),
 ):
     """
-    Delete a coupon.
+    Delete an existing coupon.
+
+    Only administrators can delete coupons.
     """
 
-    delete_coupon_service(
-        db=db,
-        coupon_id=coupon_id,
-    )
+    try:
+        delete_coupon_service(
+            db=db,
+            coupon_id=coupon_id,
+        )
+
+    except ValueError as e:
+        if str(e) == "Coupon not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 
     return {
-        "message": "Coupon deleted successfully."
+        "message": "Coupon deleted successfully.",
     }

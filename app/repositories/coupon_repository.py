@@ -115,11 +115,15 @@ class CouponRepository:
         if coupon is None:
             return None
 
-        if (
-            coupon.expires_at
-            and coupon.expires_at
-            < datetime.now(timezone.utc)
-        ):
-            return None
+        if coupon.expires_at:
+            expires_at = coupon.expires_at
+
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(
+                    tzinfo=timezone.utc
+                )
+
+            if expires_at < datetime.now(timezone.utc):
+                return None
 
         return coupon

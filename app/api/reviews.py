@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import HTTPException
 
 from sqlalchemy.orm import Session
 
@@ -39,15 +40,38 @@ def create_review(
 ):
     """
     Create a review for a product.
+
+    The service layer handles the business rules, while this
+    API layer translates domain errors into appropriate HTTP
+    responses.
     """
 
-    return create_review_service(
-        db=db,
-        product_id=product_id,
-        review_data=review_data,
-        current_user=current_user,
-    )
+    try:
+        return create_review_service(
+            db=db,
+            product_id=product_id,
+            review_data=review_data,
+            current_user=current_user,
+        )
 
+    except ValueError as e:
+        if str(e) == "Product not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        if str(e) == "You have already reviewed this product.":
+            raise HTTPException(
+                status_code=400,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+    
 @router.get(
     "/products/{product_id}",
     response_model=list[ReviewResponse],
@@ -58,12 +82,28 @@ def list_reviews(
 ):
     """
     List all reviews for a product.
+
+    The API layer translates service-level validation
+    errors into appropriate HTTP responses.
     """
 
-    return list_product_reviews_service(
-        db=db,
-        product_id=product_id,
-    )
+    try:
+        return list_product_reviews_service(
+            db=db,
+            product_id=product_id,
+        )
+
+    except ValueError as e:
+        if str(e) == "Product not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 
 @router.patch(
     "/{review_id}",
@@ -76,15 +116,37 @@ def update_review(
     db: Session = Depends(get_db),
 ):
     """
-    Update your review.
+    Update the authenticated user's review.
+
+    The service layer enforces ownership rules, while the API
+    layer translates service errors into appropriate HTTP responses.
     """
 
-    return update_review_service(
-        db=db,
-        review_id=review_id,
-        review_data=review_data,
-        current_user=current_user,
-    )
+    try:
+        return update_review_service(
+            db=db,
+            review_id=review_id,
+            review_data=review_data,
+            current_user=current_user,
+        )
+
+    except ValueError as e:
+        if str(e) == "Review not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        if str(e) == "You can only update your own review.":
+            raise HTTPException(
+                status_code=403,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
 
 @router.delete(
     "/{review_id}",
@@ -95,11 +157,35 @@ def delete_review(
     db: Session = Depends(get_db),
 ):
     """
-    Delete your review.
+    Delete the authenticated user's review.
+
+    The service layer enforces review ownership and existence,
+    while the API layer translates those business errors into
+    appropriate HTTP responses.
     """
 
-    return delete_review_service(
-        db=db,
-        review_id=review_id,
-        current_user=current_user,
-    )
+    try:
+        return delete_review_service(
+            db=db,
+            review_id=review_id,
+            current_user=current_user,
+        )
+
+    except ValueError as e:
+        if str(e) == "Review not found.":
+            raise HTTPException(
+                status_code=404,
+                detail=str(e),
+            )
+
+        if str(e) == "You can only delete your own review.":
+            raise HTTPException(
+                status_code=403,
+                detail=str(e),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+

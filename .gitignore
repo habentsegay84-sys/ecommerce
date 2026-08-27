@@ -1,26 +1,13 @@
-$ git status
-On branch master
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   app/main.py
-        modified:   app/models/__init__.py
-        modified:   app/models/__pycache__/__init__.cpython-314.pyc
-        modified:   app/models/__pycache__/product.cpython-314.pyc
-        modified:   app/models/__pycache__/user.cpython-314.pyc
-        modified:   app/models/product.py
-        modified:   app/models/user.py
+venv/
+.env
 
-Untracked files:
-  (use "git add <file>..." to include in what will be committed)
-        alembic/versions/84290efbd778_add_carts_and_cart_items.py
-        alembic/versions/__pycache__/84290efbd778_add_carts_and_cart_items.cpython-314.pyc
-        app/api/cart.py
-        app/models/__pycache__/cart.cpython-314.pyc
-        app/models/__pycache__/cart_item.cpython-314.pyc
-        app/models/cart.py
-        app/models/cart_item.py
-        app/schemas/cart.py
+__pycache__/
+*.py[cod]
 
-no changes added to commit (use "git add" and/or "git commit -a")
-(venv) 
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+.mypy_cache/
+.ruff_cache/

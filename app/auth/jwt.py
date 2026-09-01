@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError,jwt
-
+from jose import JWTError, jwt
 
 from app.core.config import (
     SECRET_KEY,

@@ -5,7 +5,7 @@ from app.models.payment import Payment
 from app.models.order import Order
 from uuid import uuid4
 
-from app.constants.payment_status import SUCCESSFUL
+from app.constants.payment_status import PENDING
 
 
 class PaymentRepository:
@@ -46,7 +46,7 @@ class PaymentRepository:
             order_id=order_id,
             amount=amount,
             payment_method=payment_method,
-            status=SUCCESSFUL,
+            status=PENDING,
             transaction_reference=str(uuid4()),
             paid_at=None,
         )

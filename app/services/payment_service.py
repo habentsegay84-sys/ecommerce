@@ -19,7 +19,6 @@ from app.exceptions.payment import OrderAlreadyPaidError
 from app.repositories.order_repository import OrderRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.core.logger import logger
-from app.constants.order_status import PROCESSING
 
 def pay_order_service(
     db: Session,
@@ -73,11 +72,6 @@ def pay_order_service(
         order_id=order.id,
         amount=order.total_price,
         payment_method=payment_data.payment_method,
-    )
-    # Update the order status before saving the payment.
-    order_repository.update_status(
-        order,
-        PROCESSING,
     )
 
     payment_repository.create(payment)

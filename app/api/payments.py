@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -6,8 +6,6 @@ from app.database.session import get_db
 from app.auth.dependencies import get_current_user
 
 from app.models.user import User
-from app.models.order import Order
-from app.models.payment import Payment
 from app.auth.admin import get_current_admin
 
 from app.schemas.payment import (
@@ -20,9 +18,6 @@ from app.services.payment_service import (
     pay_order_service,
     update_payment_status,
 )
-
-from uuid import uuid4
-from datetime import datetime
 
 from app.constants.payment_status import (
     PENDING,

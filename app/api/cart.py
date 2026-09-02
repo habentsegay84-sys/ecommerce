@@ -4,9 +4,6 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 
 from app.models.user import User
-from app.models.product import Product
-from app.models.cart import Cart
-from app.models.cart_item import CartItem
 
 from app.schemas.cart import (
     CartItemCreate,

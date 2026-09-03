@@ -15,7 +15,11 @@ from app.constants.payment_status import (
     FAILED,
 )
 from app.exceptions.order import OrderNotFoundError
-from app.exceptions.payment import OrderAlreadyPaidError
+from app.exceptions.payment import (
+    OrderAlreadyPaidError,
+    PaymentNotFoundError,
+    InvalidPaymentStatusError,
+)
 from app.repositories.order_repository import OrderRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.core.logger import logger
@@ -109,10 +113,7 @@ def update_payment_status(
     )
 
     if payment is None:
-        raise ValueError(
-            "Payment not found"
-        )
-
+        raise PaymentNotFoundError()
 
     valid_statuses = {
         PENDING,
@@ -121,19 +122,16 @@ def update_payment_status(
         FAILED,
     }
 
-
     if status not in valid_statuses:
-        raise ValueError(
-            "Invalid payment status"
-        )
+        raise InvalidPaymentStatusError()
 
+    if payment.status == SUCCESSFUL:
+        raise InvalidPaymentStatusError()
 
     payment.status = status
 
-
     if status == SUCCESSFUL:
         payment.order.status = PROCESSING
-
 
     if status == SUCCESSFUL:
         payment.paid_at = datetime.now(timezone.utc)

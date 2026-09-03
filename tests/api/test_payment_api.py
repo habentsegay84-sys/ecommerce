@@ -125,3 +125,80 @@ def test_admin_can_update_payment_status(
     assert test_payment.order.status == "processing"
     assert test_payment.paid_at is not None
 
+def test_admin_cannot_update_nonexistent_payment(
+    client,
+    db,
+    admin_user,
+):
+    """
+    Updating a payment that does not exist
+    should return 404 Not Found.
+    """
+
+    headers = get_admin_auth_headers(
+        client,
+        db,
+    )
+
+    response = client.patch(
+        "/payments/999999/status",
+        headers=headers,
+        json={
+            "status": "successful",
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_admin_cannot_set_invalid_payment_status(
+    client,
+    db,
+    admin_user,
+    test_payment,
+):
+    """
+    An invalid payment status should return
+    400 Bad Request.
+    """
+
+    headers = get_admin_auth_headers(
+        client,
+        db,
+    )
+
+    response = client.patch(
+        f"/payments/{test_payment.id}/status",
+        headers=headers,
+        json={
+            "status": "invalid_status",
+        },
+    )
+
+    assert response.status_code == 400
+
+def test_admin_cannot_change_successful_payment(
+    client,
+    db,
+    admin_user,
+    test_payment,
+):
+    headers = get_admin_auth_headers(client, db)
+
+    # First mark payment as successful.
+    response = client.patch(
+        f"/payments/{test_payment.id}/status",
+        headers=headers,
+        json={"status": "successful"},
+    )
+
+    assert response.status_code == 200
+
+    # Try to change the successful payment.
+    response = client.patch(
+        f"/payments/{test_payment.id}/status",
+        headers=headers,
+        json={"status": "failed"},
+    )
+
+    assert response.status_code == 400

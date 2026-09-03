@@ -4,10 +4,19 @@ from app.services.payment_service import (
 )
 from app.schemas.payment import PaymentCreate
 from app.models.payment import Payment
-from app.exceptions.payment import OrderAlreadyPaidError
+from app.exceptions.payment import (
+    OrderAlreadyPaidError,
+    InvalidPaymentStatusError,
+    PaymentNotFoundError,
+)
 from app.exceptions.order import OrderNotFoundError
 
 import pytest
+
+from app.constants.payment_status import (
+    SUCCESSFUL,
+    FAILED,
+)
 
 def test_payment_creation_starts_as_pending(
     db,
@@ -148,7 +157,7 @@ def test_invalid_payment_status_is_rejected(
         current_user=test_user,
     )
 
-    with pytest.raises(ValueError, match="Invalid payment status"):
+    with pytest.raises(InvalidPaymentStatusError):
         update_payment_status(
             db=db,
             payment_id=payment.id,
@@ -163,12 +172,43 @@ def test_nonexistent_payment_is_rejected(
     Test that updating a nonexistent payment is rejected.
     """
 
-    with pytest.raises(
-        ValueError,
-        match="Payment not found",
-    ):
+    with pytest.raises(PaymentNotFoundError):
         update_payment_status(
             db=db,
             payment_id=999999,
             status="successful",
+        )
+
+def test_successful_payment_cannot_be_changed(
+    db,
+    test_user,
+    test_order,
+):
+    """
+    Test that a successful payment cannot be changed
+    to another status.
+    """
+
+    payment_data = PaymentCreate(
+        payment_method="cash"
+    )
+
+    payment = pay_order_service(
+        db=db,
+        order_id=test_order.id,
+        payment_data=payment_data,
+        current_user=test_user,
+    )
+
+    update_payment_status(
+        db=db,
+        payment_id=payment.id,
+        status=SUCCESSFUL,
+    )
+
+    with pytest.raises(InvalidPaymentStatusError):
+        update_payment_status(
+            db=db,
+            payment_id=payment.id,
+            status=FAILED,
         )

@@ -190,5 +190,35 @@ class ProductRepository:
             .limit(limit)
             .all()
         )
-        
-        
+
+    def decrease_stock(
+        self,
+        product_id: int,
+        quantity: int,
+    ) -> tuple[int, int] | None:
+        """
+        Atomically decrease product stock.
+
+        Returns:
+            (old_stock, new_stock) when successful.
+            None when the product does not have enough stock.
+        """
+
+        product = (
+            self.db.query(Product)
+            .filter(Product.id == product_id)
+            .with_for_update()
+            .first()
+        )
+
+        if product is None:
+            return None
+
+        if product.stock < quantity:
+            return None
+
+        old_stock = product.stock
+        product.stock -= quantity
+        new_stock = product.stock
+
+        return old_stock, new_stock

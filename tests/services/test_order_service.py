@@ -9,6 +9,8 @@ from app.models.coupon import Coupon
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
+from app.models.inventory import InventoryLog
+
 from app.schemas.checkout import CheckoutRequest
 from app.services.order_service import checkout_service
 
@@ -477,3 +479,78 @@ def test_checkout_rolls_back_when_order_item_creation_fails(
 
     assert len(remaining_cart_items) == 1
     assert remaining_cart_items[0].quantity == 2
+
+    logs = (
+        db.query(InventoryLog)
+        .filter(InventoryLog.product_id == product.id)
+        .all()
+    )
+
+    assert logs == []
+
+def test_checkout_creates_inventory_log(db, test_user):
+    """
+    Checkout should create an inventory log
+    for the stock consumed by a sale.
+    """
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+
+    product = Product(
+        name="Test Laptop",
+        price=1000.00,
+        stock=10,
+        category_id=category.id,
+    )
+
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+
+    cart = Cart(
+        user_id=test_user.id,
+    )
+
+    db.add(cart)
+    db.commit()
+    db.refresh(cart)
+
+    cart_item = CartItem(
+        cart_id=cart.id,
+        product_id=product.id,
+        quantity=2,
+    )
+
+    db.add(cart_item)
+    db.commit()
+
+    checkout_data = CheckoutRequest()
+
+    checkout_service(
+        db=db,
+        user_id=test_user.id,
+        checkout_data=checkout_data,
+    )
+
+    logs = (
+        db.query(InventoryLog)
+        .filter(
+            InventoryLog.product_id == product.id,
+        )
+        .all()
+    )
+
+    assert len(logs) == 1
+
+    log = logs[0]
+
+    assert log.old_stock == 10
+    assert log.new_stock == 8
+    assert log.change_type == "sale"
+    assert log.changed_by == test_user.id

@@ -6,10 +6,14 @@ from app.models.cart_item import CartItem
 from app.models.coupon import Coupon
 from app.models.order import Order
 from app.models.order_item import OrderItem
+from app.models.inventory import InventoryLog
+from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.product_repository import ProductRepository
 
 from app.schemas.checkout import CheckoutRequest
 
 from app.repositories.order_repository import OrderRepository
+
 from app.schemas.order import (
     OrderResponse,
     OrderItemResponse,
@@ -152,6 +156,8 @@ def checkout_service(
     """
 
     repository = OrderRepository(db)
+    product_repository = ProductRepository(db)
+    inventory_repository = InventoryRepository(db)
 
     cart = (
         db.query(Cart)
@@ -247,7 +253,27 @@ def checkout_service(
 
             db.add(order_item)
 
-            item.product.stock -= item.quantity
+            stock_change = product_repository.decrease_stock(
+                product_id=item.product_id,
+                quantity=item.quantity,
+            )
+
+            if stock_change is None:
+                raise ValueError(
+                    f"Not enough stock for {item.product.name}"
+                )
+
+            old_stock, new_stock = stock_change
+
+            log = InventoryLog(
+                product_id=item.product_id,
+                old_stock=old_stock,
+                new_stock=new_stock,
+                change_type="sale",
+                changed_by=user_id,
+            )
+
+            inventory_repository.create_log(log)
 
         (
             db.query(CartItem)

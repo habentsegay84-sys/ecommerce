@@ -51,7 +51,10 @@ def create_review_service(
         product_id=product.id,
     )
 
-    return review_repository.create(review)
+    review = review_repository.create(review)
+    db.commit()
+
+    return review
 
 def list_product_reviews_service(
     db: Session,
@@ -109,7 +112,10 @@ def update_review_service(
     if review_data.comment is not None:
         review.comment = review_data.comment
 
-    return repository.update(review)
+    review = repository.update(review)
+    db.commit()
+
+    return review
 
 def delete_review_service(
     db: Session,
@@ -137,6 +143,7 @@ def delete_review_service(
         )
 
     repository.delete(review)
+    db.commit()
 
     return {
         "message": "Review deleted successfully."

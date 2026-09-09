@@ -85,12 +85,11 @@ class ProductRepository:
         product: Product,
     ):
         """
-        Save a new product.
+        Add a new product to the current transaction.
         """
 
         self.db.add(product)
-        self.db.commit()
-        self.db.refresh(product)
+        self.db.flush()
 
         return product
 
@@ -100,44 +99,29 @@ class ProductRepository:
         product: Product,
     ):
         """
-        Save product changes.
+        Update a product in the current transaction.
         """
 
-        self.db.commit()
-        self.db.refresh(product)
+        self.db.flush()
 
         return product
 
 
-    def delete(
-        self,
-        product: Product,
-    ):
+    def delete(self, product: Product):
         """
-        Soft delete a product.
+        Soft delete a product in the current transaction.
         """
-
         product.is_deleted = True
-
-        self.db.commit()
-        self.db.refresh(product)
-
+        self.db.flush()
         return product
 
 
-    def restore(
-        self,
-        product: Product,
-    ):
+    def restore(self, product: Product):
         """
-        Restore a deleted product.
+        Restore a product in the current transaction.
         """
-
         product.is_deleted = False
-
-        self.db.commit()
-        self.db.refresh(product)
-
+        self.db.flush()
         return product
 
     def list_admin_products(
@@ -222,3 +206,58 @@ class ProductRepository:
         new_stock = product.stock
 
         return old_stock, new_stock
+
+    def list_products(
+        self,
+        search: str | None = None,
+        category_id: int | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None,
+        sort: str | None = None,
+        page: int = 1,
+        limit: int = 10,
+    ):
+        """
+        Return paginated, non-deleted products with filtering and sorting.
+        """
+
+        query = (
+            self.db.query(Product)
+            .options(joinedload(Product.category))
+            .filter(Product.is_deleted == False)
+        )
+
+        if search:
+            query = query.filter(
+                Product.name.ilike(f"%{search}%")
+            )
+
+        if category_id:
+            query = query.filter(
+                Product.category_id == category_id
+            )
+
+        if min_price is not None:
+            query = query.filter(
+                Product.price >= min_price
+            )
+
+        if max_price is not None:
+            query = query.filter(
+                Product.price <= max_price
+            )
+
+        if sort == "price":
+            query = query.order_by(Product.price)
+
+        elif sort == "-price":
+            query = query.order_by(Product.price.desc())
+
+        offset = (page - 1) * limit
+
+        return (
+            query
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )

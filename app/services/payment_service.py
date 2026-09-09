@@ -1,9 +1,7 @@
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.models.payment import Payment
 from app.models.user import User
 
 from app.schemas.payment import PaymentCreate
@@ -87,9 +85,10 @@ def pay_order_service(
         payment.status,
     )
 
-    return payment_repository.update(
-        payment,
-    ) 
+    payment_repository.update(payment)
+    db.commit()
+
+    return payment
 
 def update_payment_status(
     db: Session,
@@ -143,9 +142,10 @@ def update_payment_status(
         payment.status,
     )
 
-    return payment_repository.update(
-        payment,
-    )
+    payment_repository.update(payment)
+    db.commit()
+
+    return payment
 
 def list_payments_service(
     db: Session,

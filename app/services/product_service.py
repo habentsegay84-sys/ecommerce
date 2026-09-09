@@ -1,21 +1,20 @@
 from sqlalchemy.orm import Session
-from sqlalchemy.orm import joinedload
 
 from app.models.product import Product
 from app.repositories.product_repository import ProductRepository
-from app.models.category import Category
 from app.models.inventory import InventoryLog
 from app.repositories.inventory_repository import InventoryRepository
+from app.repositories.category_repository import CategoryRepository
 
 def list_products_service(
     db: Session,
-    search: str | None,
-    category_id: int | None,
-    min_price: float | None,
-    max_price: float | None,
-    sort: str | None,
-    page: int,
-    limit: int,
+    search: str | None = None,
+    category_id: int | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    sort: str | None = None,
+    page: int = 1,
+    limit: int = 10,
 ):
     """
     Return paginated products with filtering,
@@ -24,68 +23,21 @@ def list_products_service(
 
     repository = ProductRepository(db)
 
-    query = (
-        db.query(Product)
-        .options(
-            joinedload(Product.category)
-        )
-        .filter(
-            Product.is_deleted == False
-        )
-    )
-
-    if search:
-        query = query.filter(
-            Product.name.ilike(f"%{search}%")
-        )
-
-    if category_id:
-        query = query.filter(
-            Product.category_id == category_id
-        )
-
-    if min_price is not None:
-        query = query.filter(
-            Product.price >= min_price
-        )
-
-    if max_price is not None:
-        query = query.filter(
-            Product.price <= max_price
-        )
-
-    if sort == "price":
-        query = query.order_by(
-            Product.price
-        )
-
-    elif sort == "-price":
-        query = query.order_by(
-            Product.price.desc()
-        )
-
-    offset = (page - 1) * limit
-
-    products = (
-        query
-        .offset(offset)
-        .limit(limit)
-        .all()
+    products = repository.list_products(
+        search=search,
+        category_id=category_id,
+        min_price=min_price,
+        max_price=max_price,
+        sort=sort,
+        page=page,
+        limit=limit,
     )
 
     for product in products:
+        summary = repository.get_rating_summary(product.id)
 
-        summary = repository.get_rating_summary(
-            product.id,
-        )
-
-        product.average_rating = (
-            summary["average_rating"]
-        )
-
-        product.review_count = (
-            summary["review_count"]
-        )
+        product.average_rating = summary["average_rating"]
+        product.review_count = summary["review_count"]
 
     return products
 
@@ -132,13 +84,10 @@ def create_product_service(
     """
 
     repository = ProductRepository(db)
+    category_repository = CategoryRepository(db)
 
-    category = (
-        db.query(Category)
-        .filter(
-            Category.id == product_data.category_id
-        )
-        .first()
+    category = category_repository.get_by_id(
+        product_data.category_id
     )
 
     if category is None:
@@ -154,7 +103,11 @@ def create_product_service(
         category_id=product_data.category_id,
     )
 
-    return repository.create(product)
+    product = repository.create(product)
+
+    db.commit()
+
+    return product
 
 def update_product_service(
     db: Session,
@@ -168,6 +121,7 @@ def update_product_service(
 
     product_repository = ProductRepository(db)
     inventory_repository = InventoryRepository(db)
+    category_repository = CategoryRepository(db)
 
     product = product_repository.get_by_id(
         product_id
@@ -178,12 +132,8 @@ def update_product_service(
             "Product not found"
         )
 
-    category = (
-        db.query(Category)
-        .filter(
-            Category.id == product_data.category_id
-        )
-        .first()
+    category = category_repository.get_by_id(
+        product_data.category_id
     )
 
     if category is None:
@@ -200,7 +150,6 @@ def update_product_service(
     product.category_id = product_data.category_id
 
     if old_stock != product.stock:
-
         inventory_repository.create_log(
             InventoryLog(
                 product_id=product.id,
@@ -211,7 +160,11 @@ def update_product_service(
             )
         )
 
-    return product_repository.update(product)
+    product = product_repository.update(product)
+
+    db.commit()
+
+    return product
 
 def delete_product_service(
     db: Session,
@@ -237,7 +190,9 @@ def delete_product_service(
             "Product already deleted"
         )
 
-    return repository.delete(product)
+    product = repository.delete(product)
+    db.commit()
+    return product
 
 def restore_product_service(
     db: Session,
@@ -263,7 +218,9 @@ def restore_product_service(
             "Product is already active"
         )    
 
-    return repository.restore(product)
+    product = repository.restore(product)
+    db.commit()
+    return product
 
 def list_admin_products_service(
     db: Session,

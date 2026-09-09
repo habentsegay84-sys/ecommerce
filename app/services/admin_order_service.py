@@ -98,8 +98,8 @@ def update_order_status_service(
         changed_by=admin_id,
     )
 
-    db.add(history)
-    db.commit()
-    db.refresh(order)
+    repository.create_status_history(history)
 
-    return order
+    db.commit()
+
+    return repository.refresh(order)

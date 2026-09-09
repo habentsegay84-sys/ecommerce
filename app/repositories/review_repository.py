@@ -19,12 +19,11 @@ class ReviewRepository:
         review: Review,
     ) -> Review:
         """
-        Save a review.
+        Add a review to the current transaction.
         """
 
         self.db.add(review)
-        self.db.commit()
-        self.db.refresh(review)
+        self.db.flush()
 
         return review
 
@@ -67,11 +66,10 @@ class ReviewRepository:
         review: Review,
     ) -> Review:
         """
-        Save changes to a review.
+        Update a review in the current transaction.
         """
 
-        self.db.commit()
-        self.db.refresh(review)
+        self.db.flush()
 
         return review
 
@@ -80,11 +78,11 @@ class ReviewRepository:
         review: Review,
     ):
         """
-        Delete a review.
+        Delete a review in the current transaction.
         """
 
         self.db.delete(review)
-        self.db.commit()
+        self.db.flush()
 
     def get_by_id(
         self,
@@ -101,4 +99,3 @@ class ReviewRepository:
             )
             .first()
         )
-

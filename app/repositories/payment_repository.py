@@ -72,11 +72,13 @@ class PaymentRepository:
         payment: Payment,
     ) -> Payment:
         """
-        Save payment changes.
+        Save payment changes within the current transaction.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
-        self.db.commit()
-        self.db.refresh(payment)
+        self.db.flush()
 
         return payment
 
@@ -117,5 +119,3 @@ class PaymentRepository:
             .limit(limit)
             .all()
         )
-
-    

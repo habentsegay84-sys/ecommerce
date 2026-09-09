@@ -44,8 +44,7 @@ class CartRepository:
         )
 
         self.db.add(cart)
-        self.db.commit()
-        self.db.refresh(cart)
+        self.db.flush()
 
         return cart
 
@@ -97,30 +96,26 @@ class CartRepository:
 
         self.db.delete(cart_item)
 
-    def delete_all_items(
-        self,
-        cart_id: int,
-    ) -> None:
-        """
-        Remove all items belonging to a cart.
-        """
-
-        (
-            self.db.query(CartItem)
-            .filter(
-                CartItem.cart_id == cart_id,
-            )
-            .delete()
-        )
-
     def save(
         self,
     ) -> None:
         """
-        Persist pending cart changes.
+        Flush pending cart changes.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
-        self.db.commit()
+        self.db.flush()
+
+    def clear_items(self, cart_id: int):
+        (
+            self.db.query(CartItem)
+            .filter(CartItem.cart_id == cart_id)
+            .delete()
+        )
+
+        self.db.flush()
 
     def refresh(
         self,

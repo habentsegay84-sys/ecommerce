@@ -35,12 +35,14 @@ class CouponRepository:
         coupon: Coupon,
     ) -> Coupon:
         """
-        Persist a new coupon to the database.
+        Add a new coupon to the current transaction.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
         self.db.add(coupon)
-        self.db.commit()
-        self.db.refresh(coupon)
+        self.db.flush()
 
         return coupon
 
@@ -49,11 +51,13 @@ class CouponRepository:
         coupon: Coupon,
     ) -> Coupon:
         """
-        Persist changes made to an existing coupon.
+        Update a coupon within the current transaction.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
-        self.db.commit()
-        self.db.refresh(coupon)
+        self.db.flush()
 
         return coupon
 
@@ -86,24 +90,26 @@ class CouponRepository:
     def delete(
         self,
         coupon: Coupon,
-    ):
+    ) -> None:
         """
-        Delete a coupon from the database.
+        Delete a coupon within the current transaction.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
         self.db.delete(coupon)
-        self.db.commit()
+        self.db.flush()
 
-    def get_valid_coupon(
-    self,
-    code: str,
+    def get_active_coupon(
+        self,
+        code: str,
     ) -> Coupon | None:
         """
-        Return only an active,
-        non-expired coupon.
+        Return an active coupon by code.
         """
 
-        coupon = (
+        return (
             self.db.query(Coupon)
             .filter(
                 Coupon.code == code,
@@ -111,19 +117,3 @@ class CouponRepository:
             )
             .first()
         )
-
-        if coupon is None:
-            return None
-
-        if coupon.expires_at:
-            expires_at = coupon.expires_at
-
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(
-                    tzinfo=timezone.utc
-                )
-
-            if expires_at < datetime.now(timezone.utc):
-                return None
-
-        return coupon

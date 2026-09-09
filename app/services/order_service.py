@@ -9,10 +9,11 @@ from app.models.order_item import OrderItem
 from app.models.inventory import InventoryLog
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.product_repository import ProductRepository
+from app.repositories.order_repository import OrderRepository
+from app.repositories.cart_repository import CartRepository
+from app.repositories.coupon_repository import CouponRepository
 
 from app.schemas.checkout import CheckoutRequest
-
-from app.repositories.order_repository import OrderRepository
 
 from app.schemas.order import (
     OrderResponse,
@@ -158,12 +159,10 @@ def checkout_service(
     repository = OrderRepository(db)
     product_repository = ProductRepository(db)
     inventory_repository = InventoryRepository(db)
+    cart_repository = CartRepository(db)
+    coupon_repository = CouponRepository(db)
 
-    cart = (
-        db.query(Cart)
-        .filter(Cart.user_id == user_id)
-        .first()
-    )
+    cart = cart_repository.get_by_user_id(user_id)
 
     if cart is None:
         raise ValueError(
@@ -180,13 +179,8 @@ def checkout_service(
     # Find coupon only when one was provided.
     if checkout_data.coupon_code:
 
-        coupon = (
-            db.query(Coupon)
-            .filter(
-                Coupon.code == checkout_data.coupon_code,
-                Coupon.active == True,
-            )
-            .first()
+        coupon = coupon_repository.get_active_coupon(
+            checkout_data.coupon_code
         )
 
         if coupon is None:
@@ -207,15 +201,11 @@ def checkout_service(
                 raise ValueError(
                     "Coupon expired"
                 )
+
     # Calculate cart total.
     total_price = 0
 
     for item in cart.items:
-
-        if item.quantity > item.product.stock:
-            raise ValueError(
-                f"Not enough stock for {item.product.name}"
-            )
 
         total_price += (
             item.product.price
@@ -251,7 +241,7 @@ def checkout_service(
                 price=item.product.price,
             )
 
-            db.add(order_item)
+            repository.create_order_item(order_item)
 
             stock_change = product_repository.decrease_stock(
                 product_id=item.product_id,
@@ -275,16 +265,9 @@ def checkout_service(
 
             inventory_repository.create_log(log)
 
-        (
-            db.query(CartItem)
-            .filter(
-                CartItem.cart_id == cart.id
-            )
-            .delete()
-        )
+        cart_repository.clear_items(cart.id)
 
         db.commit()
-        db.refresh(order)
 
         return order
 

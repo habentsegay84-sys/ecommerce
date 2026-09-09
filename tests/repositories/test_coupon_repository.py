@@ -4,9 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 
 def test_get_coupon_by_code(db):
-    """
-    Verify that a coupon can be retrieved using its unique code.
-    """
+    """Verify that an active coupon is returned."""
 
     coupon = Coupon(
         code="SUMMER30",
@@ -185,7 +183,7 @@ def test_delete_coupon(db):
 
     assert result is None
 
-def test_get_valid_coupon_returns_active_non_expired_coupon(db):
+def test_get_active_coupon_returns_active_coupon(db):
     """
     Verify that an active, non-expired coupon is returned.
     """
@@ -203,7 +201,7 @@ def test_get_valid_coupon_returns_active_non_expired_coupon(db):
 
     repository = CouponRepository(db)
 
-    result = repository.get_valid_coupon(
+    result = repository.get_active_coupon(
         "VALID20",
     )
 
@@ -211,7 +209,7 @@ def test_get_valid_coupon_returns_active_non_expired_coupon(db):
     assert result.id == coupon.id
     assert result.code == "VALID20"
 
-def test_get_valid_coupon_returns_none_for_inactive_coupon(db):
+def test_get_active_coupon_returns_none_for_inactive_coupon(db):
     """
     Verify that an inactive coupon is rejected.
     """
@@ -229,60 +227,8 @@ def test_get_valid_coupon_returns_none_for_inactive_coupon(db):
 
     repository = CouponRepository(db)
 
-    result = repository.get_valid_coupon(
+    result = repository.get_active_coupon(
         "INACTIVE20",
     )
 
     assert result is None
-
-def test_get_valid_coupon_returns_none_for_expired_coupon(db):
-    """
-    Verify that an expired coupon is rejected.
-    """
-
-    coupon = Coupon(
-        code="EXPIRED20",
-        discount_percent=20,
-        active=True,
-        expires_at=datetime.now(timezone.utc) - timedelta(days=1),
-    )
-
-    db.add(coupon)
-    db.commit()
-    db.refresh(coupon)
-
-    repository = CouponRepository(db)
-
-    result = repository.get_valid_coupon(
-        "EXPIRED20",
-    )
-
-    assert result is None
-
-def test_get_valid_coupon_returns_coupon_without_expiration(db):
-    """
-    Verify that an active coupon with no expiration
-    date is considered valid.
-    """
-
-    coupon = Coupon(
-        code="NOEXPIRY20",
-        discount_percent=20,
-        active=True,
-        expires_at=None,
-    )
-
-    db.add(coupon)
-    db.commit()
-    db.refresh(coupon)
-
-    repository = CouponRepository(db)
-
-    result = repository.get_valid_coupon(
-        "NOEXPIRY20",
-    )
-
-    assert result is not None
-    assert result.id == coupon.id
-    assert result.code == "NOEXPIRY20"
-

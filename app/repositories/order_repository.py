@@ -56,18 +56,19 @@ class OrderRepository:
         )
     
     def update_status(
-    self,
-    order: Order,
-    status: str,
+        self,
+        order: Order,
+        status: str,
     ):
         """
         Update an order's status.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
         order.status = status
-
-        self.db.commit()
-        self.db.refresh(order)
+        self.db.flush()
 
         return order
     
@@ -106,11 +107,14 @@ class OrderRepository:
         order: Order,
     ):
         """
-        Save changes to an order.
+        Save changes to an order within the
+        current transaction.
+
+        The service layer is responsible for
+        committing or rolling back the transaction.
         """
 
-        self.db.commit()
-        self.db.refresh(order)
+        self.db.flush()
 
         return order
 
@@ -179,9 +183,41 @@ class OrderRepository:
             .all()
         )
 
-    def flush(self):
+    def create_order_item(
+        self,
+        order_item: OrderItem,
+    ) -> OrderItem:
         """
-        Flush pending database changes.
+        Add an order item to the current transaction.
         """
 
+        self.db.add(order_item)
         self.db.flush()
+
+        return order_item
+
+    def create_status_history(
+        self,
+        history: OrderStatusHistory,
+    ) -> OrderStatusHistory:
+        """
+        Add an order status history record
+        to the current transaction.
+        """
+
+        self.db.add(history)
+        self.db.flush()
+
+        return history
+
+    def refresh(
+        self,
+        order: Order,
+    ) -> Order:
+        """
+        Refresh an order from the database.
+        """
+
+        self.db.refresh(order)
+
+        return order

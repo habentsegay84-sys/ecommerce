@@ -1,11 +1,10 @@
 from sqlalchemy.orm import Session
 
-from app.models.product import Product
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 
 from app.repositories.cart_repository import CartRepository
-
+from app.repositories.product_repository import ProductRepository
 
 class CartService:
     """
@@ -21,6 +20,7 @@ class CartService:
     ):
         self.db = db
         self.cart_repository = CartRepository(db)
+        self.product_repository = ProductRepository(db)
 
     def get_or_create_cart(
         self,
@@ -55,12 +55,8 @@ class CartService:
         a duplicate cart item.
         """
 
-        product = (
-            self.db.query(Product)
-            .filter(
-                Product.id == product_id
-            )
-            .first()
+        product = self.product_repository.get_by_id(
+            product_id
         )
 
         if not product:
@@ -90,6 +86,7 @@ class CartService:
             )
 
         self.cart_repository.save()
+        self.db.commit()
 
     def get_cart(
         self,
@@ -137,9 +134,8 @@ class CartService:
         cart_item.quantity = quantity
 
         self.cart_repository.save()
-        self.cart_repository.refresh(
-            cart_item
-        )
+        self.db.commit()
+        self.cart_repository.refresh(cart_item)
 
         return cart_item
 
@@ -178,6 +174,7 @@ class CartService:
         )
 
         self.cart_repository.save()
+        self.db.commit()
 
     def clear_cart(
         self,
@@ -196,8 +193,9 @@ class CartService:
                 "Cart not found"
             )
 
-        self.cart_repository.delete_all_items(
+        self.cart_repository.clear_items(
             cart.id
         )
 
         self.cart_repository.save()
+        self.db.commit()

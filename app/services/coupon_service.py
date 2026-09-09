@@ -34,7 +34,10 @@ def create_coupon_service(
         expires_at=coupon_data.expires_at,
     )
 
-    return coupon_repository.create(coupon)
+    coupon_repository.create(coupon)
+    db.commit()
+
+    return coupon
 
 def list_coupons_service(
     db: Session,
@@ -78,7 +81,10 @@ def update_coupon_service(
             value,
         )
 
-    return repository.update(coupon)
+    repository.update(coupon)
+    db.commit()
+
+    return coupon
 
 def delete_coupon_service(
     db: Session,
@@ -100,3 +106,4 @@ def delete_coupon_service(
         )
 
     repository.delete(coupon)
+    db.commit()

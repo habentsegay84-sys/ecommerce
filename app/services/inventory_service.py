@@ -54,7 +54,11 @@ def update_stock_service(
 
     inventory_repository.create_log(log)
 
-    return product_repository.update(product)
+    product = product_repository.update(product)
+
+    db.commit()
+
+    return product
 
 def list_inventory_logs_service(
     db: Session,

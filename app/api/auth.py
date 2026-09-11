@@ -33,6 +33,12 @@ def login(
             detail="Invalid email or password"
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="User account is inactive"
+        )
+    
     if not verify_password(
         credentials.password,
         user.hashed_password

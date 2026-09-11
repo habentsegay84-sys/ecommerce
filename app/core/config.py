@@ -3,10 +3,12 @@ import os
 
 load_dotenv()
 
-SECRET_KEY = os.getenv(
-    "SECRET_KEY",
-    "change-this-secret-key-in-production"
-)
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required"
+    )
 
 ALGORITHM = "HS256"
 

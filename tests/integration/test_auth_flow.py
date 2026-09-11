@@ -1,3 +1,5 @@
+from app.models.user import User
+
 def test_register_login_and_get_current_user(client):
     # 1. Register
     register_response = client.post(
@@ -53,3 +55,51 @@ def test_register_login_and_get_current_user(client):
     assert current_user["username"] == "integrationuser"
     assert current_user["email"] == "integration@example.com"
 
+def test_inactive_user_cannot_access_protected_endpoint(client, db):
+    # 1. Register user
+    register_response = client.post(
+        "/users/register",
+        json={
+            "username": "inactiveuser",
+            "email": "inactive@example.com",
+            "password": "password123",
+        },
+    )
+
+    assert register_response.status_code == 200
+
+    # 2. Login
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": "inactive@example.com",
+            "password": "password123",
+        },
+    )
+
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+
+    # 3. Deactivate the user using the same test database session
+
+    user = (
+        db.query(User)
+        .filter(User.email == "inactive@example.com")
+        .first()
+    )
+
+    assert user is not None
+
+    user.is_active = False
+    db.commit()
+
+    # 4. Try to access protected endpoint
+    response = client.get(
+        "/users/me",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 403

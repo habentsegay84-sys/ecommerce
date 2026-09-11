@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.jwt import decode_access_token
 from app.database.session import get_db
 from app.models.user import User
+from app.repositories.user_repository import UserRepository
 
 security = HTTPBearer(
     auto_error=False
@@ -47,11 +48,9 @@ def get_current_user(
             detail="Invalid token",
         )
 
-    user = (
-        db.query(User)
-        .filter(User.id == user_id)
-        .first()
-    )
+    repository = UserRepository(db)
+
+    user = repository.get_by_id(user_id)
 
     if user is None:
         raise HTTPException(
@@ -59,15 +58,10 @@ def get_current_user(
             detail="User not found",
         )
 
-    return user
-
-def get_current_admin(
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.role != "admin":
+    if not user.is_active:
         raise HTTPException(
             status_code=403,
-            detail="Admin privileges required",
+            detail="User account is inactive",
         )
 
-    return current_user
+    return user

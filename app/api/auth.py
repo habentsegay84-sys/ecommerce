@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models.user import User
+from app.repositories.user_repository import UserRepository
 from app.schemas.auth import LoginRequest, Token
 from app.core.security import verify_password
 from app.auth.jwt import create_access_token
@@ -23,11 +23,9 @@ def login(
     db: Session = Depends(get_db)
 ):
 
-    user = (
-        db.query(User)
-        .filter(User.email == credentials.email)
-        .first()
-    )
+    repository = UserRepository(db)
+
+    user = repository.get_by_email(credentials.email)
 
     if user is None:
         raise HTTPException(

@@ -20,3 +20,21 @@ class CategoryRepository:
             .filter(Category.id == category_id)
             .first()
         )
+
+    def get_by_name(self, name: str) -> Category | None:
+        """
+        Retrieve a category by name.
+        """
+        return (
+            self.db.query(Category)
+            .filter(Category.name == name)
+            .first()
+        )
+
+    def create(self, category: Category) -> Category:
+        """
+        Add a new category to the current transaction.
+        """
+        self.db.add(category)
+        self.db.flush()
+        return category

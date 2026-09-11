@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models.category import Category
 from app.schemas.category import (
     CategoryCreate,
     CategoryResponse,
 )
-from app.auth.dependencies import get_current_admin
+from app.auth.admin import get_current_admin
 from app.models.user import User
+from app.services.category_service import CategoryService
+
 
 router = APIRouter(
     prefix="/categories",
@@ -26,25 +27,6 @@ def create_category(
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    existing = (
-        db.query(Category)
-        .filter(Category.name == category.name)
-        .first()
-    )
+    service = CategoryService(db)
 
-    if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="Category already exists"
-        )
-
-    new_category = Category(
-        name=category.name,
-        description=category.description,
-    )
-
-    db.add(new_category)
-    db.commit()
-    db.refresh(new_category)
-
-    return new_category
+    return service.create_category(category)

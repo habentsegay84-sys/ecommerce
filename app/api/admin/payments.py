@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query,HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.database.session import get_db
-from app.auth.dependencies import get_current_admin
+from app.auth.admin import get_current_admin
 
 from app.models.user import User
 from app.models.payment import Payment

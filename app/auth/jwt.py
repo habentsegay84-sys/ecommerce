@@ -7,8 +7,6 @@ from app.core.config import (
     ALGORITHM,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from app.core.config import SECRET_KEY, ALGORITHM
-
 
 def create_access_token(data: dict):
     to_encode = data.copy()

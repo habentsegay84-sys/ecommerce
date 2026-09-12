@@ -1,5 +1,7 @@
 from tests.utils.auth import get_auth_headers
+from jose import jwt
 
+from app.core.config import SECRET_KEY, ALGORITHM
 
 def test_get_me_with_auth(client):
     headers = get_auth_headers(client)
@@ -28,6 +30,25 @@ def test_get_me_with_invalid_token(client):
         "/users/me",
         headers={
             "Authorization": "Bearer invalid-token"
+        },
+    )
+
+    assert response.status_code == 401
+
+def test_get_me_with_wrong_token_type(client):
+    token = jwt.encode(
+        {
+            "sub": "1",
+            "type": "refresh",
+        },
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
+    response = client.get(
+        "/users/me",
+        headers={
+            "Authorization": f"Bearer {token}"
         },
     )
 

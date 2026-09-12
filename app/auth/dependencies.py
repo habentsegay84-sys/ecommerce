@@ -32,6 +32,12 @@ def get_current_user(
             detail="Invalid token",
         )
 
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+        )
+
     user_id = payload.get("sub")
 
     if user_id is None:
